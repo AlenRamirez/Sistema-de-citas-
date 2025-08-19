@@ -142,8 +142,9 @@
     <div class="login-form">
       <h1 class="text-center">Registro</h1>
       <form id="registrationForm" method="POST" action="">
-        <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Nombres" required>
-        <input type="number" class="form-control" id="documento" name="documento" placeholder="documento" required>
+        <input type="text" class="form-control" id="nombre" name="nombre" 
+        placeholder="Nombre" required oninput="validarNombre()" required>
+        <input type="number" class="form-control" id="documento" name="documento" placeholder="Documento" required>
         <input type="email" class="form-control" id="correo" name="correo" placeholder="Correo electrónico" required>
         <input type="number" class="form-control" id="telefono" name="telefono" placeholder="Teléfono" required>
         <div class="password-container">
@@ -153,8 +154,9 @@
         </div>
 
         <div class="form-check mt-3">
-          <input class="form-check-label" type="checkbox" id="terminos" required> <label class="form-check-label"
-            for="terminos">Acepto los términos y condiciones</label>
+          <input class="form-check-label" type="checkbox" id="terminos" required>
+          <label class="form-check-label" for="terminos">Acepto los términos y condiciones</label>
+
         </div>
 
         <button type="submit" class="btn btn-outline-light w-100">Registrarse</button>
@@ -177,6 +179,13 @@
         toggleIcon.classList.add('bi-eye');
       }
     }
+
+   function validarNombre(input) {
+  const regex = /^[a-zA-Z\s]*$/; 
+  if (!regex.test(input.value)) {
+    input.value = input.value.replace(/[^a-zA-Z\s]/g, ""); 
+  }
+}
   </script>
 </body>
 
