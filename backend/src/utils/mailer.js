@@ -13,12 +13,13 @@ const transporter = nodemailer.createTransport({
 
 const sendConfirmationEmail = async (to, nombre) => {
   const mailOptions = {
-    from: `"CDMI" <${process.env.EMAIL_USER}>`,
+    from: `"Citas medicas" <${process.env.EMAIL_USER}>`,
     to: to,
     subject: 'Confirmación de registro',
     html: `<p>Hola ${nombre},</p>
            <p>Gracias por registrarte. Tu cuenta ha sido creada correctamente.</p>
-           <p>Saludos,<br>CDMI</p>`
+           <p>Saludos,<br>Citas medicas Sena</p>`
+        
   };
 
   await transporter.sendMail(mailOptions);
