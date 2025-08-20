@@ -19,7 +19,7 @@ const sendConfirmationcorreo = async (to, nombre) => {
     html: `<p>Hola ${nombre},</p>
            <p>Gracias por registrarte. Tu cuenta ha sido creada correctamente.</p>
            <p>Saludos,<br>Citas medicas Sena</p>`
-        
+
   };
 
   await transporter.sendMail(mailOptions);
@@ -37,7 +37,7 @@ const sendRecoveryEmail = async (to, nombre, link) => {
 
   await transporter.sendMail(mailOptions);
 };
-module.exports = { sendConfirmationcorreo, sendRecoveryEmail};
+module.exports = { sendConfirmationcorreo, sendRecoveryEmail };
 
 
 

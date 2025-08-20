@@ -114,7 +114,7 @@ exports.forgotPassword = async (req, res) => {
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
-    const tokenExpire = new Date(Date.now() + 60 * 60 * 1000); 
+    const tokenExpire = new Date(Date.now() + 60 * 60 * 1000);
 
     // Guardar token en la tabla de recuperación
     await pool.query(

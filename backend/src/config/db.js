@@ -1,9 +1,9 @@
 const mysql = require('mysql2/promise');
 
-const dbConfig ={
+const dbConfig = {
     host: 'localhost',
     user: 'root',
-    password: '', 
+    password: '',
     database: 'sistema_citas_medicas',
     waitForConnections: true,
     connectionLimit: 10,
@@ -23,5 +23,5 @@ async function testConnection() {
         return false;
     }
 }
-module.exports = {pool, testConnection };
+module.exports = { pool, testConnection };
 
