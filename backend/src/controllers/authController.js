@@ -2,12 +2,18 @@ const { pool } = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-// Registrar paciente
 exports.register = async (req, res) => {
   const { nombre_completo, documento, correo, telefono, password } = req.body;
 
+  
+  const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({
+      message: 'La contraseña debe tener mínimo 8 caracteres, 1 mayúscula, 1 número y 1 carácter especial.'
+    });
+  }
+
   try {
-    // Verificar correo y documento existentes
     const [existCorreo] = await pool.query('SELECT * FROM usuarios WHERE correo=?', [correo]);
     if (existCorreo.length > 0) return res.status(400).json({ message: 'Correo ya registrado' });
 
@@ -23,10 +29,11 @@ exports.register = async (req, res) => {
 
     res.status(201).json({ message: 'Paciente registrado' });
   } catch (error) {
-    console.error(error); // <-- muestra error real en consola
+    console.error(error);
     res.status(500).json({ message: 'Error registrando usuario', error: error.message });
   }
 };
+
 
 
 // Login
