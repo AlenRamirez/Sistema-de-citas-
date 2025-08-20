@@ -34,8 +34,8 @@ body {
 .popover { max-width: 260px; }
 #misCitas { max-width:1100px; margin: 20px auto; }
 
-.btn { background-color: #007bff !important; border-color: #007bff !important; color: white !important; }
-.btn:hover { background-color: #0056b3 !important; border-color: #0056b3 !important; }
+.btn { background-color: #93c1e2 !important; border-color: #93c1e2 !important; color: white !important; }
+.btn:hover { background-color: #93c1e2 !important; border-color: #93c1e2 !important; }
 </style>
 </head>
 <body>
@@ -67,9 +67,10 @@ body {
 
 <script>
 const medicos = [
-  {id: 1, nombre: 'Dr. Juan Pérez', especialidad: 'Cardiología', horarios: ['09:00','10:00','11:00'], img: 'https://randomuser.me/api/portraits/men/32.jpg'},
-  {id: 2, nombre: 'Dra. María López', especialidad: 'Dermatología', horarios: ['10:00','11:00','12:00'], img: 'https://randomuser.me/api/portraits/women/44.jpg'},
-  {id: 3, nombre: 'Dr. Carlos Ruiz', especialidad: 'Pediatría', horarios: ['08:00','09:30','11:30'], img: 'https://randomuser.me/api/portraits/men/65.jpg'}
+  {id: 1, nombre: 'Dr. Juan Pérez', especialidad: 'Cardiología', horarios: ['09:00','10:00','11:00'], img: 'https://www.clinicadelcountry.com/sites/default/files/uploads/dr_gomez.png'},
+  {id: 2, nombre: 'Dra. María López', especialidad: 'Dermatología', horarios: ['10:00','11:00','12:00'], img: 'https://www.clinicalacolina.com/sites/default/files/uploads/dra_lina.png'},
+  {id: 3, nombre: 'Dr. Carlos Ruiz', especialidad: 'Pediatría', horarios: ['08:00','09:30','11:30'], img: 'https://www.clinicadelcountry.com/sites/default/files/uploads/dr_gomez.png'},
+    {id: 2, nombre: 'Dra. Camila Acuña', especialidad: 'Odontoligia', horarios: ['10:00','11:00','12:00'], img: 'https://www.clinicalacolina.com/sites/default/files/uploads/dra_lina.png'}
 ];
 
 let citas = [];
@@ -130,7 +131,7 @@ const calendar = new FullCalendar.Calendar(calendarEl, {
             title: 'Libre',
             start: dia+'T'+h,
             end: dia+'T'+h,
-            color: '#007bff', // ahora libre en azul
+            color: '#93c1e2', // ahora libre en azul
             extendedProps: { img: medico.img, especialidad: medico.especialidad, horario: h, medicoNombre: medico.nombre, medicoId: medico.id }
           });
         }
@@ -196,7 +197,7 @@ const calendar = new FullCalendar.Calendar(calendarEl, {
       if(confirm(`¿Desea cancelar la cita con ${info.event.title}?`)){
         const index = citas.findIndex(c => c.medicoNombre === info.event.title && c.fecha+'T'+c.horario === info.event.startStr.substring(0,16));
         if(index>=0) citas.splice(index,1);
-        info.event.setProp('color','#007bff'); // vuelve a libre azul
+        info.event.setProp('color','#93c1e2'); // vuelve a libre azul
         info.event.setProp('title','Libre');
         actualizarListaCitas();
       }
