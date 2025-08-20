@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 20-08-2025 a las 18:47:01
+-- Tiempo de generación: 21-08-2025 a las 00:22:07
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.0.30
 
@@ -372,6 +372,27 @@ INSERT INTO `pacientes` (`id_paciente`, `fecha_nacimiento`, `sexo`, `eps`, `aler
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `recuperacion_password`
+--
+
+CREATE TABLE `recuperacion_password` (
+  `id` int(11) NOT NULL,
+  `id_usuario` bigint(20) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `expiracion` datetime NOT NULL,
+  `creado_en` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `recuperacion_password`
+--
+
+INSERT INTO `recuperacion_password` (`id`, `id_usuario`, `token`, `expiracion`, `creado_en`) VALUES
+(2, 15, '517d059073fe332c138af49033a789e2d44869812f246b0c68a4fab98dbb22c6', '2025-08-20 16:43:38', '2025-08-20 20:43:38');
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `roles`
 --
 
@@ -393,22 +414,6 @@ INSERT INTO `roles` (`id_rol`, `nombre`, `descripcion`, `created_at`) VALUES
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `tokens_recuperacion`
---
-
-CREATE TABLE `tokens_recuperacion` (
-  `id_token` bigint(20) NOT NULL,
-  `id_usuario` bigint(20) NOT NULL,
-  `token` varchar(255) NOT NULL,
-  `expira_en` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `usado` tinyint(1) DEFAULT 0,
-  `ip_solicitante` varchar(45) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Estructura de tabla para la tabla `usuarios`
 --
 
@@ -422,24 +427,26 @@ CREATE TABLE `usuarios` (
   `id_rol` smallint(6) NOT NULL,
   `activo` tinyint(1) DEFAULT 1,
   `fecha_ultimo_acceso` timestamp NULL DEFAULT NULL,
-  `intentos_fallidos` tinyint(4) DEFAULT 0,
-  `bloqueado_hasta` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `intentos_fallidos` int(11) DEFAULT 0,
+  `bloqueado_hasta` datetime DEFAULT NULL,
+  `reset_token` varchar(255) DEFAULT NULL,
+  `reset_token_expire` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Volcado de datos para la tabla `usuarios`
 --
 
-INSERT INTO `usuarios` (`id_usuario`, `correo`, `password_hash`, `nombre_completo`, `documento`, `telefono`, `id_rol`, `activo`, `fecha_ultimo_acceso`, `intentos_fallidos`, `bloqueado_hasta`, `created_at`, `updated_at`) VALUES
-(1, 'admin@sistema.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador Sistema', '12345678', '3001234567', 1, 1, NULL, 0, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00'),
-(2, 'juan@test.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Juan Pérez Gómez', '1023456789', '3001234568', 2, 1, NULL, 0, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00'),
-(3, 'maria@test.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'María González López', '1034567890', '3001234569', 2, 1, NULL, 0, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00'),
-(4, 'carlos@test.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Carlos Rodríguez Silva', '1045678901', '3001234570', 2, 1, NULL, 0, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00'),
-(6, 'valentina@example.com', '$2b$10$Q/IlhJkvi2JDw/JCQNuKJOG1tAyEtdULS2kW1SqvTLayxMFtpdL6W', 'Valentina Ramirez', '123400000', '3001230067', 2, 1, NULL, 0, NULL, '2025-08-20 15:47:07', '2025-08-20 15:47:07'),
-(7, 'ramiro@example.com', '$2b$10$Y5Jx/KJTMwF3oywuGpK74.P5B2QMGKfVYLWiIl9UDzhsTq.Km3NP6', 'Ramiro Ramirez', '123488880', '3001230067', 2, 1, NULL, 0, NULL, '2025-08-20 16:09:14', '2025-08-20 16:09:14'),
-(8, 'valentinaramirezld25@gmail.com', '$2b$10$BTtfIMGLuaE04jHBAwweI.q4JI5dS0qtLQoQ55ozmtTMteE434qOe', 'Laura Ramirez', '123400080', '3001230067', 2, 1, NULL, 0, NULL, '2025-08-20 16:37:24', '2025-08-20 16:37:24');
+INSERT INTO `usuarios` (`id_usuario`, `correo`, `password_hash`, `nombre_completo`, `documento`, `telefono`, `id_rol`, `activo`, `fecha_ultimo_acceso`, `created_at`, `updated_at`, `intentos_fallidos`, `bloqueado_hasta`, `reset_token`, `reset_token_expire`) VALUES
+(1, 'admin@sistema.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador Sistema', '12345678', '3001234567', 1, 1, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00', 0, NULL, NULL, NULL),
+(2, 'juan@test.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Juan Pérez Gómez', '1023456789', '3001234568', 2, 1, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00', 0, NULL, NULL, NULL),
+(3, 'maria@test.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'María González López', '1034567890', '3001234569', 2, 1, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00', 0, NULL, NULL, NULL),
+(4, 'carlos@test.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Carlos Rodríguez Silva', '1045678901', '3001234570', 2, 1, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00', 0, NULL, NULL, NULL),
+(6, 'valentina@example.com', '$2b$10$Q/IlhJkvi2JDw/JCQNuKJOG1tAyEtdULS2kW1SqvTLayxMFtpdL6W', 'Valentina Ramirez', '123400000', '3001230067', 2, 1, NULL, '2025-08-20 15:47:07', '2025-08-20 15:47:07', 0, NULL, NULL, NULL),
+(7, 'ramiro@example.com', '$2b$10$Y5Jx/KJTMwF3oywuGpK74.P5B2QMGKfVYLWiIl9UDzhsTq.Km3NP6', 'Ramiro Ramirez', '123488880', '3001230067', 2, 1, NULL, '2025-08-20 16:09:14', '2025-08-20 16:09:14', 0, NULL, NULL, NULL),
+(15, 'valentinaramirezld25@gmail.com', '$2b$10$tFtQk36eXK5leroNYLEFKuV5SaJAaNNMZQNLHa8IjDe65OrQkje0C', 'Laura Ramirez', '123400080', '3001230067', 2, 1, '2025-08-20 20:41:28', '2025-08-20 19:18:03', '2025-08-20 20:41:28', 0, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -587,20 +594,18 @@ ALTER TABLE `pacientes`
   ADD PRIMARY KEY (`id_paciente`);
 
 --
+-- Indices de la tabla `recuperacion_password`
+--
+ALTER TABLE `recuperacion_password`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `id_usuario` (`id_usuario`);
+
+--
 -- Indices de la tabla `roles`
 --
 ALTER TABLE `roles`
   ADD PRIMARY KEY (`id_rol`),
   ADD UNIQUE KEY `nombre` (`nombre`);
-
---
--- Indices de la tabla `tokens_recuperacion`
---
-ALTER TABLE `tokens_recuperacion`
-  ADD PRIMARY KEY (`id_token`),
-  ADD UNIQUE KEY `token` (`token`),
-  ADD KEY `idx_token` (`token`),
-  ADD KEY `idx_usuario` (`id_usuario`);
 
 --
 -- Indices de la tabla `usuarios`
@@ -655,22 +660,22 @@ ALTER TABLE `medicos`
   MODIFY `id_medico` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
+-- AUTO_INCREMENT de la tabla `recuperacion_password`
+--
+ALTER TABLE `recuperacion_password`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
 -- AUTO_INCREMENT de la tabla `roles`
 --
 ALTER TABLE `roles`
   MODIFY `id_rol` smallint(6) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT de la tabla `tokens_recuperacion`
---
-ALTER TABLE `tokens_recuperacion`
-  MODIFY `id_token` bigint(20) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT de la tabla `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id_usuario` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id_usuario` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- Restricciones para tablas volcadas
@@ -711,10 +716,10 @@ ALTER TABLE `pacientes`
   ADD CONSTRAINT `pacientes_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE;
 
 --
--- Filtros para la tabla `tokens_recuperacion`
+-- Filtros para la tabla `recuperacion_password`
 --
-ALTER TABLE `tokens_recuperacion`
-  ADD CONSTRAINT `tokens_recuperacion_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE;
+ALTER TABLE `recuperacion_password`
+  ADD CONSTRAINT `recuperacion_password_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`);
 
 --
 -- Filtros para la tabla `usuarios`
