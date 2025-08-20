@@ -26,7 +26,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 
-app.get('/', (req, res) => res.send('API funcionando 🚀'));
+app.get('/', (req, res) => res.send('API funcionando'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor en http://localhost:${PORT}`));
