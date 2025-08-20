@@ -1,19 +1,26 @@
-const mysql = require('mysql2');
-require('dotenv').config();
+const mysql = require('mysql2/promise');
 
-const connection = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
-});
+const dbConfig ={
+    host: 'localhost',
+    user: 'root',
+    password: '', 
+    database: 'sistema_citas_medicas',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+};
 
-connection.connect((err) => {
-  if (err) {
-    console.error('Error de conexión a la base de datos:', err);
-    return;
-  }
-  console.log('Conectado a la base de datos MySQL');
-});
+const pool = mysql.createPool(dbConfig);
 
-module.exports = connection;
+async function testConnection() {
+    try {
+        const connection = await pool.getConnection();
+        console.log('Conectado a MySQL exitosamente');
+        connection.release();
+        return true;
+    } catch (error) {
+        console.error('Error conectando a MySQL:', error.message);
+        return false;
+    }
+}
+module.exports = { pool, testConnection };

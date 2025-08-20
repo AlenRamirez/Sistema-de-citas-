@@ -1,11 +1,11 @@
 {
   "name": "index",
-  "version": "1.0.0", 
+  "version": "1.0.0",
   "main": "index.js",
-"scripts": {
-  "start": "node src/index.js",
-  "dev": "nodemon src/index.js"
-},
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AlenRamirez/Sistema-de-citas-.git"
