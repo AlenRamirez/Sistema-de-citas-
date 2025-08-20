@@ -1,7 +1,8 @@
-const {pool } = require('../config/db');
+const { pool } = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { sendConfirmationcorreo } = require('../utils/mailer');
+const crypto = require('crypto');
+const { sendConfirmationcorreo, sendRecoveryEmail } = require("../utils/mailer");
 
 //register
 exports.register = async (req, res) => {
@@ -26,7 +27,7 @@ exports.register = async (req, res) => {
 
     await pool.query(
       'INSERT INTO usuarios (nombre_completo, documento, correo, telefono, password_hash, id_rol) VALUES (?, ?, ?, ?, ?, ?)',
-      [nombre_completo, documento, correo, telefono, hashedPassword, 2] 
+      [nombre_completo, documento, correo, telefono, hashedPassword, 2]
     );
 
     await sendConfirmationcorreo(correo, nombre_completo);
@@ -60,14 +61,14 @@ exports.login = async (req, res) => {
         message: `Cuenta bloqueada hasta ${user.bloqueado_hasta}`,
       });
     }
-    
+
     const validPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!validPassword) {
       let intentos = user.intentos_fallidos + 1;
 
       if (intentos >= 3) {
-        
+
         const bloqueadoHasta = new Date(Date.now() + 15 * 60 * 1000);
         await pool.query(
           "UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = ? WHERE id_usuario = ?",
@@ -100,5 +101,68 @@ exports.login = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error en el servidor" });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  const { correo } = req.body;
+
+  try {
+    const [user] = await pool.query("SELECT * FROM usuarios WHERE correo = ?", [correo]);
+    if (user.length === 0) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const tokenExpire = new Date(Date.now() + 60 * 60 * 1000); 
+
+    // Guardar token en la tabla de recuperación
+    await pool.query(
+      "INSERT INTO recuperacion_password (id_usuario, token, expiracion) VALUES (?, ?, ?)",
+      [user[0].id_usuario, resetToken, tokenExpire]
+    );
+
+    const resetURL = `http://localhost:3000/auth/reset-password/${resetToken}`;
+
+    // Enviar correo usando la función
+    await sendRecoveryEmail(correo, user[0].nombre_completo, resetURL);
+
+    res.json({ message: "Se envió un enlace a tu correo para restablecer la contraseña" });
+  } catch (error) {
+    console.error("Error en forgotPassword:", error);
+    res.status(500).json({ message: "Error al procesar la solicitud" });
+  }
+};
+
+// RESTABLECER CONTRASEÑA usando tabla separada
+exports.resetPassword = async (req, res) => {
+  const { token } = req.params;
+  const { nuevaContrasena } = req.body;
+
+  try {
+    const [record] = await pool.query(
+      "SELECT * FROM recuperacion_password WHERE token = ? AND expiracion > NOW()",
+      [token]
+    );
+
+    if (record.length === 0) {
+      return res.status(400).json({ message: "Token inválido o expirado" });
+    }
+
+    const hashedPassword = await bcrypt.hash(nuevaContrasena, 10);
+
+    // Actualizar contraseña en usuarios
+    await pool.query(
+      "UPDATE usuarios SET password_hash = ? WHERE id_usuario = ?",
+      [hashedPassword, record[0].id_usuario]
+    );
+
+    // Borrar token usado
+    await pool.query("DELETE FROM recuperacion_password WHERE id = ?", [record[0].id]);
+
+    res.json({ message: "Contraseña actualizada correctamente" });
+  } catch (error) {
+    console.error("Error en resetPassword:", error);
+    res.status(500).json({ message: "Error al restablecer la contraseña" });
   }
 };
