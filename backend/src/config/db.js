@@ -23,4 +23,4 @@ async function testConnection() {
         return false;
     }
 }
-module.exports = { pool, testConnection };
+module.exports = {pool, testConnection };

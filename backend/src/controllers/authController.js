@@ -1,11 +1,12 @@
-const { pool } = require('../config/db');
+const {pool } = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { sendConfirmationEmail } = require('../utils/mailer');
 
+//register
 exports.register = async (req, res) => {
   const { nombre_completo, documento, correo, telefono, password } = req.body;
 
-  
   const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
   if (!passwordRegex.test(password)) {
     return res.status(400).json({
@@ -14,6 +15,7 @@ exports.register = async (req, res) => {
   }
 
   try {
+
     const [existCorreo] = await pool.query('SELECT * FROM usuarios WHERE correo=?', [correo]);
     if (existCorreo.length > 0) return res.status(400).json({ message: 'Correo ya registrado' });
 
@@ -24,10 +26,12 @@ exports.register = async (req, res) => {
 
     await pool.query(
       'INSERT INTO usuarios (nombre_completo, documento, correo, telefono, password_hash, id_rol) VALUES (?, ?, ?, ?, ?, ?)',
-      [nombre_completo, documento, correo, telefono, hashedPassword, 2]
+      [nombre_completo, documento, correo, telefono, hashedPassword, 2] 
     );
 
-    res.status(201).json({ message: 'Paciente registrado' });
+    await sendConfirmationEmail(correo, nombre_completo);
+
+    res.status(201).json({ message: 'Paciente registrado. Se ha enviado un correo de confirmación.' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error registrando usuario', error: error.message });
