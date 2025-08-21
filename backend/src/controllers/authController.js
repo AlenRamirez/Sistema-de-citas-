@@ -25,12 +25,20 @@ exports.register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await pool.query(
+  const [result] = await pool.query(
       'INSERT INTO usuarios (nombre_completo, documento, correo, telefono, password_hash, id_rol) VALUES (?, ?, ?, ?, ?, ?)',
-      [nombre_completo, documento, correo, telefono, hashedPassword, 2]
+      [nombre_completo, documento, correo, telefono, hashedPassword, 2] 
+    );
+
+    const newUserId = result.insertId;
+
+    await pool.query(
+      'INSERT INTO pacientes (id_paciente) VALUES (?)',
+      [newUserId]
     );
 
     await sendConfirmationcorreo(correo, nombre_completo);
+    
 
     res.status(201).json({ message: 'Paciente registrado. Se ha enviado un correo de confirmación.' });
   } catch (error) {
@@ -96,7 +104,7 @@ exports.login = async (req, res) => {
       {
         id_usuario: user.id_usuario,
         correo: user.correo,
-        rol: user.id_rol === 2 ? 'paciente' : user.id_rol === 1 ? 'admin' : 'otro' 
+        rol: user.id_rol === 2 ? 'paciente' : 'admin' 
       },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
@@ -108,7 +116,7 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Error en el servidor" });
   }
 };
-
+//RESTABLECER PASS
 exports.forgotPassword = async (req, res) => {
   const { correo } = req.body;
 

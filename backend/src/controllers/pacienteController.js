@@ -1,21 +1,23 @@
-const db = require('../config/db.js');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+const { pool } = require('../config/db');
+//const bcrypt = require('bcrypt');
+//const jwt = require('jsonwebtoken');
 
 const pacienteController = {
 
   obtenerPerfil: async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
+      const userId = req.user.id_usuario;
+
       
  
-      if (parseInt(id) !== userId && req.user.rol !== 'admin') {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'No tienes permisos para ver este perfil' 
-        });
-      }
+      if (!(req.user.rol === 'admin' || (req.user.rol === 'paciente' && requestedId === userId))) {
+  return res.status(403).json({
+    success: false,
+    message: 'No tienes permisos para actualizar este perfil'
+  });
+}
+
 
       const query = `
         SELECT u.id_usuario, u.correo, u.nombre_completo, u.documento, 
@@ -23,10 +25,10 @@ const pacienteController = {
                p.fecha_nacimiento, p.sexo, p.eps, p.alergias
         FROM usuarios u
         INNER JOIN pacientes p ON u.id_usuario = p.id_paciente
-        WHERE u.id_usuario = ? AND u.id_rol = 3
+        WHERE u.id_usuario = ? AND u.id_rol = 2
       `;
       
-      const [rows] = await db.execute(query, [id]);
+      const [rows] = await pool.execute(query, [id]);
       
       if (rows.length === 0) {
         return res.status(404).json({ 
@@ -55,64 +57,109 @@ const pacienteController = {
   actualizarPerfil: async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
-      
-    
-      if (parseInt(id) !== userId && req.user.rol !== 'admin') {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'No tienes permisos para actualizar este perfil' 
+      const userId = req.user.id_usuario;
+
+      const requestedId = parseInt(id);
+
+      // Verificación de permisos
+      if (req.user.rol === 'admin') {
+        // Admin puede actualizar cualquier perfil
+      }
+      else if (req.user.rol === 'paciente' && requestedId === userId) {
+        // Paciente puede actualizar su propio perfil
+      }
+      else {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permisos para actualizar este perfil'
         });
       }
 
-      const { 
-        nombre_completo, 
-        telefono, 
-        fecha_nacimiento, 
-        sexo, 
-        eps, 
-        alergias 
+      const {
+        nombre_completo,
+        fecha_nacimiento,
+        sexo,
+        eps,
+        alergias
       } = req.body;
 
+      // Validación básica
       if (!nombre_completo || nombre_completo.trim().length === 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'El nombre completo es requerido' 
+        return res.status(400).json({
+          success: false,
+          message: 'El nombre completo es requerido'
         });
       }
 
-      const updateUserQuery = `
-        UPDATE usuarios 
-        SET nombre_completo = ?, telefono = ?
-        WHERE id_usuario = ?
-      `;
-      
-      await db.execute(updateUserQuery, [nombre_completo, telefono, id]);
+      // Función helper para convertir undefined a null
+      const toNullIfUndefined = (value) => value !== undefined ? value : null;
 
-      const updatePatientQuery = `
-        UPDATE pacientes 
-        SET fecha_nacimiento = ?, sexo = ?, eps = ?, alergias = ?
-        WHERE id_paciente = ?
-      `;
-      
-      await db.execute(updatePatientQuery, [
-        fecha_nacimiento || null,
-        sexo || null,
-        eps || null,
-        alergias || null,
+      // Actualizar tabla usuarios (información básica)
+      const updateUserQuery = `
+      UPDATE usuarios 
+      SET nombre_completo = ?
+      WHERE id_usuario = ?
+    `;
+
+      await pool.execute(updateUserQuery, [
+        nombre_completo,
         id
       ]);
 
-      res.json({ 
-        success: true, 
-        message: 'Perfil actualizado correctamente' 
+      // Solo actualizar información de paciente si al menos uno de estos campos está presente
+      if (fecha_nacimiento !== undefined || sexo !== undefined || eps !== undefined || alergias !== undefined) {
+
+        // Verificar si existe un registro en la tabla pacientes con el id correspondiente
+        // Asumiendo que id_paciente corresponde al id_usuario (misma persona, diferentes tablas)
+        const checkPatientQuery = `
+        SELECT id_paciente FROM pacientes WHERE id_paciente = ?
+      `;
+
+        const [patientExists] = await pool.execute(checkPatientQuery, [id]);
+
+        if (patientExists.length > 0) {
+          // Si existe, actualizar
+          const updatePatientQuery = `
+          UPDATE pacientes
+          SET fecha_nacimiento = ?, sexo = ?, eps = ?, alergias = ?
+          WHERE id_paciente = ?
+        `;
+
+          await pool.execute(updatePatientQuery, [
+            toNullIfUndefined(fecha_nacimiento),
+            toNullIfUndefined(sexo),
+            toNullIfUndefined(eps),
+            toNullIfUndefined(alergias),
+            id
+          ]);
+        } else {
+          // Si no existe, crear el registro
+          // Nota: id_paciente debe coincidir con id_usuario para mantener la relación
+          const insertPatientQuery = `
+          INSERT INTO pacientes (id_paciente, fecha_nacimiento, sexo, eps, alergias)
+          VALUES (?, ?, ?, ?, ?)
+        `;
+
+          await pool.execute(insertPatientQuery, [
+            id,
+            toNullIfUndefined(fecha_nacimiento),
+            toNullIfUndefined(sexo),
+            toNullIfUndefined(eps),
+            toNullIfUndefined(alergias)
+          ]);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: 'Perfil actualizado correctamente'
       });
-      
+
     } catch (error) {
       console.error('Error al actualizar perfil:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error interno del servidor' 
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
       });
     }
   },
@@ -164,7 +211,7 @@ const pacienteController = {
       
       queryParams.push(parseInt(limit), offset);
       
-      const [rows] = await db.execute(query, queryParams);
+      const [rows] = await pool.execute(query, queryParams);
       
       
       const countQuery = `
@@ -175,7 +222,7 @@ const pacienteController = {
         ${whereClause.replace('LIMIT ? OFFSET ?', '')}
       `;
       
-      const [countRows] = await db.execute(countQuery, queryParams.slice(0, -2));
+      const [countRows] = await pool.execute(countQuery, queryParams.slice(0, -2));
       const total = countRows[0].total;
       
       res.json({
@@ -201,7 +248,7 @@ const pacienteController = {
   },
 
   agendarCita: async (req, res) => {
-    const connection = await db.getConnection();
+    const connection = await pool.getConnection();
     
     try {
       await connection.beginTransaction();
@@ -284,7 +331,7 @@ const pacienteController = {
   },
 
   cancelarCita: async (req, res) => {
-    const connection = await db.getConnection();
+    const connection = await pool.getConnection();
     
     try {
       await connection.beginTransaction();
@@ -397,7 +444,7 @@ const pacienteController = {
         ORDER BY h.fecha ASC, h.hora_inicio ASC
       `;
       
-      const [rows] = await db.execute(query, queryParams);
+      const [rows] = await pool.execute(query, queryParams);
       
       res.json({ 
         success: true, 
