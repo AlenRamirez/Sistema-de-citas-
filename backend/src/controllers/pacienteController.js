@@ -7,7 +7,7 @@ const pacienteController = {
   obtenerPerfil: async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.id_usuario;
+      const userId = req.user.id_usuario_usuario;
 
       
  
@@ -57,16 +57,15 @@ const pacienteController = {
   actualizarPerfil: async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.id_usuario;
+      const userId = req.user.id_usuario_usuario;
 
       const requestedId = parseInt(id);
 
-      // Verificación de permisos
       if (req.user.rol === 'admin') {
-        // Admin puede actualizar cualquier perfil
+ 
       }
       else if (req.user.rol === 'paciente' && requestedId === userId) {
-        // Paciente puede actualizar su propio perfil
+       
       }
       else {
         return res.status(403).json({
@@ -83,7 +82,6 @@ const pacienteController = {
         alergias
       } = req.body;
 
-      // Validación básica
       if (!nombre_completo || nombre_completo.trim().length === 0) {
         return res.status(400).json({
           success: false,
@@ -91,10 +89,8 @@ const pacienteController = {
         });
       }
 
-      // Función helper para convertir undefined a null
       const toNullIfUndefined = (value) => value !== undefined ? value : null;
 
-      // Actualizar tabla usuarios (información básica)
       const updateUserQuery = `
       UPDATE usuarios 
       SET nombre_completo = ?
@@ -106,11 +102,8 @@ const pacienteController = {
         id
       ]);
 
-      // Solo actualizar información de paciente si al menos uno de estos campos está presente
       if (fecha_nacimiento !== undefined || sexo !== undefined || eps !== undefined || alergias !== undefined) {
 
-        // Verificar si existe un registro en la tabla pacientes con el id correspondiente
-        // Asumiendo que id_paciente corresponde al id_usuario (misma persona, diferentes tablas)
         const checkPatientQuery = `
         SELECT id_paciente FROM pacientes WHERE id_paciente = ?
       `;
@@ -118,7 +111,7 @@ const pacienteController = {
         const [patientExists] = await pool.execute(checkPatientQuery, [id]);
 
         if (patientExists.length > 0) {
-          // Si existe, actualizar
+    
           const updatePatientQuery = `
           UPDATE pacientes
           SET fecha_nacimiento = ?, sexo = ?, eps = ?, alergias = ?
@@ -133,8 +126,7 @@ const pacienteController = {
             id
           ]);
         } else {
-          // Si no existe, crear el registro
-          // Nota: id_paciente debe coincidir con id_usuario para mantener la relación
+         
           const insertPatientQuery = `
           INSERT INTO pacientes (id_paciente, fecha_nacimiento, sexo, eps, alergias)
           VALUES (?, ?, ?, ?, ?)
@@ -166,65 +158,82 @@ const pacienteController = {
 
   obtenerMisCitas: async (req, res) => {
     try {
-      const pacienteId = req.user.id;
+
+      const id_paciente = req.user.id_usuario;
       const { estado, fecha_desde, fecha_hasta, page = 1, limit = 10 } = req.query;
-      
+
+      console.log('Debug - id_paciente:', id_paciente);
+      console.log('Debug - query params:', req.query);
+
+      if (!id_paciente) {
+        return res.status(401).json({
+          success: false,
+          message: 'Usuario no autenticado'
+        });
+      }
+
       let whereClause = 'WHERE c.id_paciente = ?';
-      let queryParams = [pacienteId];
-    
+      let queryParams = [id_paciente]; 
+
       if (estado) {
         whereClause += ' AND ec.nombre = ?';
         queryParams.push(estado);
       }
-      
+
       if (fecha_desde) {
         whereClause += ' AND h.fecha >= ?';
         queryParams.push(fecha_desde);
       }
-      
+
       if (fecha_hasta) {
         whereClause += ' AND h.fecha <= ?';
         queryParams.push(fecha_hasta);
       }
 
       const offset = (page - 1) * limit;
-      
+
+      console.log('Debug - whereClause:', whereClause);
+      console.log('Debug - queryParams:', queryParams);
+
       const query = `
-        SELECT c.id_cita, c.motivo, c.fecha_creacion,
-               h.fecha, h.hora_inicio, h.hora_fin,
-               u.nombre_completo as medico_nombre,
-               m.registro_profesional, m.consultorio,
-               ec.nombre as estado,
-               GROUP_CONCAT(e.nombre) as especialidades
-        FROM citas c
-        INNER JOIN horarios h ON c.id_horario = h.id_horario
-        INNER JOIN medicos m ON h.id_medico = m.id_medico
-        INNER JOIN usuarios u ON m.id_medico = u.id_usuario
-        INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
-        LEFT JOIN medico_especialidad me ON m.id_medico = me.id_medico
-        LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
-        ${whereClause}
-        GROUP BY c.id_cita
-        ORDER BY h.fecha DESC, h.hora_inicio DESC
-        LIMIT ? OFFSET ?
-      `;
-      
-      queryParams.push(parseInt(limit), offset);
-      
-      const [rows] = await pool.execute(query, queryParams);
-      
-      
+      SELECT c.id_cita, c.motivo, c.fecha_creacion,
+             h.fecha, h.hora_inicio, h.hora_fin,
+             u.nombre_completo as medico_nombre,
+             m.registro_profesional, m.consultorio,
+             ec.nombre as estado,
+             GROUP_CONCAT(e.nombre) as especialidades
+      FROM citas c
+      INNER JOIN horarios h ON c.id_horario = h.id_horario
+      INNER JOIN medicos m ON h.id_medico = m.id_medico
+      INNER JOIN usuarios u ON m.id_medico = u.id_usuario
+      INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
+      LEFT JOIN medico_especialidad me ON m.id_medico = me.id_medico
+      LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
+      ${whereClause}
+      GROUP BY c.id_cita
+      ORDER BY h.fecha DESC, h.hora_inicio DESC
+      LIMIT ? OFFSET ?
+    `;
+
+      const mainQueryParams = [...queryParams, parseInt(limit), offset];
+
+      console.log('Debug - mainQueryParams:', mainQueryParams);
+
+      const [rows] = await pool.execute(query, mainQueryParams);
+
       const countQuery = `
-        SELECT COUNT(DISTINCT c.id_cita) as total
-        FROM citas c
-        INNER JOIN horarios h ON c.id_horario = h.id_horario
-        INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
-        ${whereClause.replace('LIMIT ? OFFSET ?', '')}
-      `;
-      
-      const [countRows] = await pool.execute(countQuery, queryParams.slice(0, -2));
+      SELECT COUNT(DISTINCT c.id_cita) as total
+      FROM citas c
+      INNER JOIN horarios h ON c.id_horario = h.id_horario
+      INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
+      ${whereClause}
+    `;
+
+      console.log('Debug - countQuery params:', queryParams);
+
+      const [countRows] = await pool.execute(countQuery, queryParams);
       const total = countRows[0].total;
-      
+
       res.json({
         success: true,
         data: {
@@ -237,12 +246,12 @@ const pacienteController = {
           }
         }
       });
-      
+
     } catch (error) {
       console.error('Error al obtener citas:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error interno del servidor' 
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
       });
     }
   },
@@ -253,7 +262,7 @@ const pacienteController = {
     try {
       await connection.beginTransaction();
       
-      const pacienteId = req.user.id;
+      const id_paciente = req.user.id_usuario;
       const { id_horario, motivo } = req.body;
       
       if (!id_horario) {
@@ -283,7 +292,7 @@ const pacienteController = {
         INNER JOIN horarios h ON c.id_horario = h.id_horario 
         WHERE c.id_paciente = ? AND h.fecha = ? AND h.hora_inicio = ? 
         AND c.id_estado IN (1, 2)
-      `, [pacienteId, horarioRows[0].fecha, horarioRows[0].hora_inicio]);
+      `, [id_paciente, horarioRows[0].fecha, horarioRows[0].hora_inicio]);
       
       if (citasConflicto.length > 0) {
         await connection.rollback();
@@ -297,7 +306,7 @@ const pacienteController = {
       const [citaResult] = await connection.execute(`
         INSERT INTO citas (id_paciente, id_horario, id_estado, motivo, fecha_creacion) 
         VALUES (?, ?, 1, ?, NOW())
-      `, [pacienteId, id_horario, motivo || null]);
+      `, [id_paciente, id_horario, motivo || null]);
       
  
       await connection.execute(
@@ -308,7 +317,7 @@ const pacienteController = {
       await connection.execute(`
         INSERT INTO auditoria_citas (id_cita, evento, actor_id_usuario, fecha_evento)
         VALUES (?, 'creada', ?, NOW())
-      `, [citaResult.insertId, pacienteId]);
+      `, [citaResult.insertId, id_paciente]);
       
       await connection.commit();
       
@@ -337,7 +346,7 @@ const pacienteController = {
       await connection.beginTransaction();
       
       const { id } = req.params;
-      const pacienteId = req.user.id;
+      const id_paciente = req.user.id_usuario;
       const { motivo_cancelacion } = req.body;
       
       const [citaRows] = await connection.execute(`
@@ -346,7 +355,7 @@ const pacienteController = {
         FROM citas c
         INNER JOIN horarios h ON c.id_horario = h.id_horario
         WHERE c.id_cita = ? AND c.id_paciente = ? AND c.id_estado IN (1, 2)
-      `, [id, pacienteId]);
+      `, [id, id_paciente]);
       
       if (citaRows.length === 0) {
         await connection.rollback();
@@ -380,7 +389,7 @@ const pacienteController = {
       await connection.execute(`
         INSERT INTO auditoria_citas (id_cita, evento, detalle, actor_id_usuario, fecha_evento)
         VALUES (?, 'cancelada', ?, ?, NOW())
-      `, [id, motivo_cancelacion || 'Cancelada por paciente', pacienteId]);
+      `, [id, motivo_cancelacion || 'Cancelada por paciente', id_paciente]);
       
       await connection.commit();
       
