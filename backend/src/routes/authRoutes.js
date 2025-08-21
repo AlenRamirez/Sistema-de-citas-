@@ -18,8 +18,19 @@ router.post('/register', register);
  *     summary: Iniciar sesión
  */
 router.post('/login', login);
-
+/**
+ * @swagger
+ * /auth/forgotPasswor:
+ *   post:
+ *     summary: recuperar contraseña
+ */
 router.post("/forgot-password", forgotPassword);
+/**
+ * @swagger
+ * /auth/resetPassword:
+ *   post:
+ *     summary: reiniciar contraseña
+ */
 router.post("/reset-password/:token", resetPassword);
 
 

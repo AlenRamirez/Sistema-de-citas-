@@ -1,0 +1,417 @@
+const db = require('../config/db.js');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+const pacienteController = {
+
+  obtenerPerfil: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+      
+ 
+      if (parseInt(id) !== userId && req.user.rol !== 'admin') {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'No tienes permisos para ver este perfil' 
+        });
+      }
+
+      const query = `
+        SELECT u.id_usuario, u.correo, u.nombre_completo, u.documento, 
+               u.telefono, u.activo, u.created_at,
+               p.fecha_nacimiento, p.sexo, p.eps, p.alergias
+        FROM usuarios u
+        INNER JOIN pacientes p ON u.id_usuario = p.id_paciente
+        WHERE u.id_usuario = ? AND u.id_rol = 3
+      `;
+      
+      const [rows] = await db.execute(query, [id]);
+      
+      if (rows.length === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Paciente no encontrado' 
+        });
+      }
+      
+      const paciente = rows[0];
+      delete paciente.password_hash; 
+      
+      res.json({ 
+        success: true, 
+        data: paciente 
+      });
+      
+    } catch (error) {
+      console.error('Error al obtener perfil:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error interno del servidor' 
+      });
+    }
+  },
+
+  actualizarPerfil: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+      
+    
+      if (parseInt(id) !== userId && req.user.rol !== 'admin') {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'No tienes permisos para actualizar este perfil' 
+        });
+      }
+
+      const { 
+        nombre_completo, 
+        telefono, 
+        fecha_nacimiento, 
+        sexo, 
+        eps, 
+        alergias 
+      } = req.body;
+
+      if (!nombre_completo || nombre_completo.trim().length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'El nombre completo es requerido' 
+        });
+      }
+
+      const updateUserQuery = `
+        UPDATE usuarios 
+        SET nombre_completo = ?, telefono = ?
+        WHERE id_usuario = ?
+      `;
+      
+      await db.execute(updateUserQuery, [nombre_completo, telefono, id]);
+
+      const updatePatientQuery = `
+        UPDATE pacientes 
+        SET fecha_nacimiento = ?, sexo = ?, eps = ?, alergias = ?
+        WHERE id_paciente = ?
+      `;
+      
+      await db.execute(updatePatientQuery, [
+        fecha_nacimiento || null,
+        sexo || null,
+        eps || null,
+        alergias || null,
+        id
+      ]);
+
+      res.json({ 
+        success: true, 
+        message: 'Perfil actualizado correctamente' 
+      });
+      
+    } catch (error) {
+      console.error('Error al actualizar perfil:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error interno del servidor' 
+      });
+    }
+  },
+
+  obtenerMisCitas: async (req, res) => {
+    try {
+      const pacienteId = req.user.id;
+      const { estado, fecha_desde, fecha_hasta, page = 1, limit = 10 } = req.query;
+      
+      let whereClause = 'WHERE c.id_paciente = ?';
+      let queryParams = [pacienteId];
+    
+      if (estado) {
+        whereClause += ' AND ec.nombre = ?';
+        queryParams.push(estado);
+      }
+      
+      if (fecha_desde) {
+        whereClause += ' AND h.fecha >= ?';
+        queryParams.push(fecha_desde);
+      }
+      
+      if (fecha_hasta) {
+        whereClause += ' AND h.fecha <= ?';
+        queryParams.push(fecha_hasta);
+      }
+
+      const offset = (page - 1) * limit;
+      
+      const query = `
+        SELECT c.id_cita, c.motivo, c.fecha_creacion,
+               h.fecha, h.hora_inicio, h.hora_fin,
+               u.nombre_completo as medico_nombre,
+               m.registro_profesional, m.consultorio,
+               ec.nombre as estado,
+               GROUP_CONCAT(e.nombre) as especialidades
+        FROM citas c
+        INNER JOIN horarios h ON c.id_horario = h.id_horario
+        INNER JOIN medicos m ON h.id_medico = m.id_medico
+        INNER JOIN usuarios u ON m.id_medico = u.id_usuario
+        INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
+        LEFT JOIN medico_especialidad me ON m.id_medico = me.id_medico
+        LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
+        ${whereClause}
+        GROUP BY c.id_cita
+        ORDER BY h.fecha DESC, h.hora_inicio DESC
+        LIMIT ? OFFSET ?
+      `;
+      
+      queryParams.push(parseInt(limit), offset);
+      
+      const [rows] = await db.execute(query, queryParams);
+      
+      
+      const countQuery = `
+        SELECT COUNT(DISTINCT c.id_cita) as total
+        FROM citas c
+        INNER JOIN horarios h ON c.id_horario = h.id_horario
+        INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
+        ${whereClause.replace('LIMIT ? OFFSET ?', '')}
+      `;
+      
+      const [countRows] = await db.execute(countQuery, queryParams.slice(0, -2));
+      const total = countRows[0].total;
+      
+      res.json({
+        success: true,
+        data: {
+          citas: rows,
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: total,
+            pages: Math.ceil(total / limit)
+          }
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error al obtener citas:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error interno del servidor' 
+      });
+    }
+  },
+
+  agendarCita: async (req, res) => {
+    const connection = await db.getConnection();
+    
+    try {
+      await connection.beginTransaction();
+      
+      const pacienteId = req.user.id;
+      const { id_horario, motivo } = req.body;
+      
+      if (!id_horario) {
+        await connection.rollback();
+        return res.status(400).json({ 
+          success: false, 
+          message: 'El horario es requerido' 
+        });
+      }
+      
+    
+      const [horarioRows] = await connection.execute(
+        'SELECT * FROM horarios WHERE id_horario = ? AND disponible = true AND fecha >= CURDATE()',
+        [id_horario]
+      );
+      
+      if (horarioRows.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ 
+          success: false, 
+          message: 'El horario seleccionado no está disponible' 
+        });
+      }
+      
+      const [citasConflicto] = await connection.execute(`
+        SELECT c.id_cita FROM citas c 
+        INNER JOIN horarios h ON c.id_horario = h.id_horario 
+        WHERE c.id_paciente = ? AND h.fecha = ? AND h.hora_inicio = ? 
+        AND c.id_estado IN (1, 2)
+      `, [pacienteId, horarioRows[0].fecha, horarioRows[0].hora_inicio]);
+      
+      if (citasConflicto.length > 0) {
+        await connection.rollback();
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Ya tienes una cita agendada a esta hora' 
+        });
+      }
+      
+      
+      const [citaResult] = await connection.execute(`
+        INSERT INTO citas (id_paciente, id_horario, id_estado, motivo, fecha_creacion) 
+        VALUES (?, ?, 1, ?, NOW())
+      `, [pacienteId, id_horario, motivo || null]);
+      
+ 
+      await connection.execute(
+        'UPDATE horarios SET disponible = false WHERE id_horario = ?',
+        [id_horario]
+      );
+    
+      await connection.execute(`
+        INSERT INTO auditoria_citas (id_cita, evento, actor_id_usuario, fecha_evento)
+        VALUES (?, 'creada', ?, NOW())
+      `, [citaResult.insertId, pacienteId]);
+      
+      await connection.commit();
+      
+      res.status(201).json({ 
+        success: true, 
+        message: 'Cita agendada exitosamente',
+        data: { id_cita: citaResult.insertId }
+      });
+      
+    } catch (error) {
+      await connection.rollback();
+      console.error('Error al agendar cita:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error interno del servidor' 
+      });
+    } finally {
+      connection.release();
+    }
+  },
+
+  cancelarCita: async (req, res) => {
+    const connection = await db.getConnection();
+    
+    try {
+      await connection.beginTransaction();
+      
+      const { id } = req.params;
+      const pacienteId = req.user.id;
+      const { motivo_cancelacion } = req.body;
+      
+      const [citaRows] = await connection.execute(`
+        SELECT c.*, h.fecha, h.hora_inicio, 
+               TIMESTAMPDIFF(HOUR, NOW(), CONCAT(h.fecha, ' ', h.hora_inicio)) as horas_restantes
+        FROM citas c
+        INNER JOIN horarios h ON c.id_horario = h.id_horario
+        WHERE c.id_cita = ? AND c.id_paciente = ? AND c.id_estado IN (1, 2)
+      `, [id, pacienteId]);
+      
+      if (citaRows.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Cita no encontrada o no se puede cancelar' 
+        });
+      }
+      
+      const cita = citaRows[0];
+      
+      if (cita.horas_restantes < 24) {
+        await connection.rollback();
+        return res.status(400).json({ 
+          success: false, 
+          message: 'No se puede cancelar la cita. Debe hacerlo con al menos 24 horas de anticipación' 
+        });
+      }
+
+      await connection.execute(`
+        UPDATE citas 
+        SET id_estado = 4, cancelada_por = 'paciente', fecha_cancelacion = NOW(), fecha_actualizacion = NOW()
+        WHERE id_cita = ?
+      `, [id]);
+      
+      await connection.execute(
+        'UPDATE horarios SET disponible = true WHERE id_horario = ?',
+        [cita.id_horario]
+      );
+      
+      await connection.execute(`
+        INSERT INTO auditoria_citas (id_cita, evento, detalle, actor_id_usuario, fecha_evento)
+        VALUES (?, 'cancelada', ?, ?, NOW())
+      `, [id, motivo_cancelacion || 'Cancelada por paciente', pacienteId]);
+      
+      await connection.commit();
+      
+      res.json({ 
+        success: true, 
+        message: 'Cita cancelada exitosamente' 
+      });
+      
+    } catch (error) {
+      await connection.rollback();
+      console.error('Error al cancelar cita:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error interno del servidor' 
+      });
+    } finally {
+      connection.release();
+    }
+  },
+
+  buscarMedicosDisponibles: async (req, res) => {
+    try {
+      const { especialidad, medico, fecha_desde, fecha_hasta } = req.query;
+      
+      let whereClause = 'WHERE h.disponible = true AND h.fecha >= CURDATE()';
+      let queryParams = [];
+      
+      if (especialidad) {
+        whereClause += ' AND e.id_especialidad = ?';
+        queryParams.push(especialidad);
+      }
+      
+      if (medico) {
+        whereClause += ' AND m.id_medico = ?';
+        queryParams.push(medico);
+      }
+      
+      if (fecha_desde) {
+        whereClause += ' AND h.fecha >= ?';
+        queryParams.push(fecha_desde);
+      }
+      
+      if (fecha_hasta) {
+        whereClause += ' AND h.fecha <= ?';
+        queryParams.push(fecha_hasta);
+      }
+      
+      const query = `
+        SELECT DISTINCT h.id_horario, h.fecha, h.hora_inicio, h.hora_fin,
+               u.nombre_completo as medico_nombre, m.registro_profesional, 
+               m.consultorio, m.id_medico,
+               GROUP_CONCAT(DISTINCT e.nombre) as especialidades,
+               GROUP_CONCAT(DISTINCT e.id_especialidad) as especialidad_ids
+        FROM horarios h
+        INNER JOIN medicos m ON h.id_medico = m.id_medico
+        INNER JOIN usuarios u ON m.id_medico = u.id_usuario
+        INNER JOIN medico_especialidad me ON m.id_medico = me.id_medico
+        INNER JOIN especialidades e ON me.id_especialidad = e.id_especialidad
+        ${whereClause}
+        GROUP BY h.id_horario
+        ORDER BY h.fecha ASC, h.hora_inicio ASC
+      `;
+      
+      const [rows] = await db.execute(query, queryParams);
+      
+      res.json({ 
+        success: true, 
+        data: rows 
+      });
+      
+    } catch (error) {
+      console.error('Error al buscar médicos:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error interno del servidor' 
+      });
+    }
+  }
+};
+
+module.exports = pacienteController;

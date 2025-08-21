@@ -46,9 +46,10 @@ exports.login = async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      "SELECT id_usuario, correo, password_hash, intentos_fallidos, bloqueado_hasta FROM usuarios WHERE correo = ?",
+      "SELECT id_usuario, correo, password_hash, id_rol, intentos_fallidos, bloqueado_hasta FROM usuarios WHERE correo = ?",
       [correo]
     );
+
 
     if (rows.length === 0) {
       return res.status(400).json({ message: "Usuario no encontrado" });
@@ -92,7 +93,11 @@ exports.login = async (req, res) => {
     );
 
     const token = jwt.sign(
-      { id_usuario: user.id_usuario, correo: user.correo },
+      {
+        id_usuario: user.id_usuario,
+        correo: user.correo,
+        rol: user.id_rol === 2 ? 'paciente' : user.id_rol === 1 ? 'admin' : 'otro' 
+      },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
