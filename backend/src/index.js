@@ -6,6 +6,7 @@ const swaggerJsdoc = require('swagger-jsdoc');
 
 const authRoutes = require('./routes/authRoutes');
 const pacienteRoutes = require('./routes/pacienteRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 app.use(express.json());
@@ -25,6 +26,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 app.use('/auth', authRoutes);
 app.use('/pacientes', pacienteRoutes);
+app.use('/admin', adminRoutes);
 
 
 
