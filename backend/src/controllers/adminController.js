@@ -103,7 +103,7 @@ const adminController = {
             const { id } = req.params;
             const { activo } = req.body;
 
-           
+            // Verificar que el usuario no se desactive a sí mismo
             if (parseInt(id) === req.user.id_usuario) {
                 return res.status(400).json({
                     success: false,
@@ -116,9 +116,12 @@ const adminController = {
                 [activo, id]
             );
 
+            // Generar mensaje dinámico
+            const estado = activo == 1 ? 'activado' : 'desactivado';
+
             res.json({
                 success: true,
-                message: `Usuario ${activo ? 'activado' : 'desactivado'} correctamente`
+                message: `El usuario ha sido ${estado} correctamente`
             });
         } catch (error) {
             console.error('Error al cambiar estado del usuario:', error);
@@ -129,5 +132,50 @@ const adminController = {
         }
     },
 
+
+
+    // Eliminar usuario
+    deleteUser: async (req, res) => {
+        try {
+            const { id } = req.params;
+
+            // Verificar que el usuario no se elimine a sí mismo
+            if (parseInt(id) === req.userId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No puedes eliminar tu propia cuenta'
+                });
+            }
+
+            // Verificar si el usuario tiene citas activas
+            const citasActivas = await pool.query(`
+                SELECT COUNT(*) as count
+                FROM citas c
+                INNER JOIN horarios h ON c.id_horario = h.id_horario
+                WHERE (c.id_paciente = ? OR h.id_medico = ?) 
+                AND c.id_estado IN (1, 2)
+            `, [id, id]);
+
+            if (citasActivas[0].count > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No se puede eliminar el usuario porque tiene citas activas'
+                });
+            }
+
+            await pool.query('DELETE FROM usuarios WHERE id_usuario = ?', [id]);
+
+            res.json({
+                success: true,
+                message: 'Usuario eliminado correctamente'
+            });
+        } catch (error) {
+            console.error('Error al eliminar usuario:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al eliminar usuario'
+            });
+        }
+    },
 
 }
