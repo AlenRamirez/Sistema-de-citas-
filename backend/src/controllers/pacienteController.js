@@ -379,21 +379,17 @@ const pacienteController = {
         return res.status(400).json({ message: 'No se puede cancelar la cita. Debe hacerlo con al menos 24 horas de anticipación' });
       }
 
-
-      // Actualizar cita
       await connection.execute(`
       UPDATE citas
       SET id_estado = 4, cancelada_por = ?, fecha_cancelacion = NOW(), fecha_actualizacion = NOW()
       WHERE id_cita = ?
     `, ['paciente', id]);
 
-      // Liberar horario
       await connection.execute(
         'UPDATE horarios SET disponible = true WHERE id_horario = ?',
         [cita.id_horario]
       );
 
-      // Registrar auditoría
       await connection.execute(`
       INSERT INTO auditoria_citas (id_cita, evento, detalle, actor_id_usuario, fecha_evento)
       VALUES (?, 'cancelada', ?, ?, NOW())
