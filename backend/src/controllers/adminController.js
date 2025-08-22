@@ -253,4 +253,157 @@ const adminController = {
 
 
     // Gestión de citas
+    getAllCitas: async (req, res) => {
+        try {
+            const { estado, fecha_inicio, fecha_fin, medico, paciente, page = 1, limit = 10 } = req.query;
+            let whereClause = 'WHERE 1=1';
+            const params = [];
+
+            if (estado && estado !== 'todos') {
+                whereClause += ' AND ec.nombre = ?';
+                params.push(estado);
+            }
+
+            if (fecha_inicio) {
+                whereClause += ' AND h.fecha >= ?';
+                params.push(fecha_inicio);
+            }
+
+            if (fecha_fin) {
+                whereClause += ' AND h.fecha <= ?';
+                params.push(fecha_fin);
+            }
+
+            if (medico) {
+                whereClause += ' AND um.nombre_completo LIKE ?';
+                params.push(`%${medico}%`);
+            }
+
+            if (paciente) {
+                whereClause += ' AND up.nombre_completo LIKE ?';
+                params.push(`%${paciente}%`);
+            }
+
+            const offset = (page - 1) * limit;
+
+            const citas = await pool.query(`
+                SELECT c.id_cita, c.motivo, c.fecha_creacion, c.fecha_cancelacion,
+                       c.cancelada_por, h.fecha, h.hora_inicio, h.hora_fin,
+                       up.nombre_completo as paciente, up.documento as documento_paciente,
+                       um.nombre_completo as medico, um.documento as documento_medico,
+                       ec.nombre as estado,
+                       GROUP_CONCAT(e.nombre) as especialidades
+                FROM citas c
+                INNER JOIN horarios h ON c.id_horario = h.id_horario
+                INNER JOIN pacientes p ON c.id_paciente = p.id_paciente
+                INNER JOIN usuarios up ON p.id_paciente = up.id_usuario
+                INNER JOIN medicos m ON h.id_medico = m.id_medico
+                INNER JOIN usuarios um ON m.id_medico = um.id_usuario
+                INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
+                LEFT JOIN medico_especialidad me ON m.id_medico = me.id_medico
+                LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
+                ${whereClause}
+                GROUP BY c.id_cita
+                ORDER BY h.fecha DESC, h.hora_inicio DESC
+                LIMIT ? OFFSET ?
+            `, [...params, parseInt(limit), offset]);
+
+            const totalCount = await pool.query(`
+                SELECT COUNT(DISTINCT c.id_cita) as total
+                FROM citas c
+                INNER JOIN horarios h ON c.id_horario = h.id_horario
+                INNER JOIN pacientes p ON c.id_paciente = p.id_paciente
+                INNER JOIN usuarios up ON p.id_paciente = up.id_usuario
+                INNER JOIN medicos m ON h.id_medico = m.id_medico
+                INNER JOIN usuarios um ON m.id_medico = um.id_usuario
+                INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
+                ${whereClause}
+            `, params);
+
+            res.json({
+                success: true,
+                data: {
+                    citas,
+                    pagination: {
+                        page: parseInt(page),
+                        limit: parseInt(limit),
+                        total: totalCount[0].total,
+                        pages: Math.ceil(totalCount[0].total / limit)
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error al obtener citas:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener citas'
+            });
+        }
+    },
+
+    // Cancelar cita (admin)
+    cancelCita: async (req, res) => {
+        const connection = await pool.getConnection();
+        try {
+            const { id } = req.params;
+            const { motivo } = req.body;
+
+            const [cita] = await connection.query(`
+            SELECT c.id_cita, c.id_estado, h.id_horario
+            FROM citas c
+            INNER JOIN horarios h ON c.id_horario = h.id_horario
+            WHERE c.id_cita = ?
+        `, [id]);
+
+            if (cita.length === 0) {
+                return res.status(404).json({ success: false, message: 'Cita no encontrada' });
+            }
+
+            if (cita[0].id_estado === 4) {
+                return res.status(400).json({ success: false, message: 'La cita ya está cancelada' });
+            }
+
+            await connection.beginTransaction();
+
+            // Actualizar cita
+            await connection.query(`
+            UPDATE citas 
+            SET id_estado = 4, cancelada_por = 'admin',
+                motivo_cancelacion = ?, 
+                fecha_cancelacion = NOW(), fecha_actualizacion = NOW()
+            WHERE id_cita = ?
+        `, [motivo || 'Cancelada por administrador', id]);
+
+            // Liberar horario
+            await connection.query(`
+            UPDATE horarios SET disponible = true WHERE id_horario = ?
+        `, [cita[0].id_horario]);
+
+            // Registrar auditoría
+            await connection.query(`
+            INSERT INTO auditoria_citas 
+            (id_cita, evento, estado_anterior, estado_nuevo, detalle, actor_id_usuario, ip_address)
+            VALUES (?, 'cancelada', ?, ?, ?, ?, ?)
+        `, [
+                id,
+                cita[0].id_estado,           // anterior
+                4,                           // nuevo
+                motivo || 'Cancelada por admin',
+                req.user?.id || null,        // usuario
+                req.ip || null               // ip
+            ]);
+
+            await connection.commit();
+
+            res.json({ success: true, message: 'Cita cancelada correctamente' });
+
+        } catch (error) {
+            await connection.rollback();
+            console.error('Error al cancelar cita:', error);
+            res.status(500).json({ success: false, message: 'Error al cancelar cita', error: error.message });
+        } finally {
+            connection.release();
+        }
+    },
+
 }
