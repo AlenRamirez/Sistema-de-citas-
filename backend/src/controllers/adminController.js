@@ -2,7 +2,7 @@ const { pool } = require('../config/db');
 const bcrypt = require('bcrypt');
 
 const adminController = {
-    
+
     // Dashboard con estadísticas
     getDashboard: async (req, res) => {
         try {
@@ -178,4 +178,79 @@ const adminController = {
         }
     },
 
+
+    // Crear médico
+    // Crear un médico
+    createMedico: async (req, res) => {
+        const connection = await pool.getConnection();
+        try {
+            const {
+                nombre_completo,
+                correo,
+                registro_profesional,
+                consultorio,
+                telefono,
+                estado = 'activo',
+                biografia,
+                experiencia_anos,
+                foto_url,
+                especialidades
+            } = req.body;
+
+            // Validar campos requeridos
+            if (!nombre_completo || !registro_profesional) {
+                return res.status(400).json({
+                    success: false,
+                    message: "El nombre completo y el registro profesional son obligatorios"
+                });
+            }
+
+            // 🔹 Validar si ya existe antes de insertar
+            const [medicoExistente] = await connection.query(
+                "SELECT id_medico FROM medicos WHERE registro_profesional = ?",
+                [registro_profesional]
+            );
+
+            if (medicoExistente.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Ya existe un médico con este registro profesional"
+                });
+            }
+
+            await connection.beginTransaction();
+
+            // Insertar en la tabla medicos
+            const [result] = await connection.query(
+                `INSERT INTO medicos 
+                (nombre_completo, correo, registro_profesional, consultorio, telefono, estado, biografia, experiencia_anos, foto_url) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [nombre_completo, correo, registro_profesional, consultorio, telefono, estado, biografia, experiencia_anos, foto_url]
+            );
+
+            const medicoId = result.insertId;
+
+            // Insertar especialidades del médico si existen
+            if (especialidades && especialidades.length > 0) {
+                const values = especialidades.map(idEspecialidad => [medicoId, idEspecialidad]);
+                await connection.query(
+                    "INSERT INTO medico_especialidad (id_medico, id_especialidad) VALUES ?",
+                    [values]
+                );
+            }
+
+            await connection.commit();
+            res.status(201).json({ success: true, message: "Médico creado exitosamente", id_medico: medicoId });
+        } catch (error) {
+            await connection.rollback();
+            console.error("Error al crear médico:", error);
+            res.status(500).json({ success: false, message: "Error interno del servidor" });
+        } finally {
+            connection.release();
+        }
+    },
+
+
+
+    // Gestión de citas
 }
