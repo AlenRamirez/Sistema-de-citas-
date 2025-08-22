@@ -338,72 +338,80 @@ const pacienteController = {
       connection.release();
     }
   },
-
   cancelarCita: async (req, res) => {
     const connection = await pool.getConnection();
-    
+
     try {
       await connection.beginTransaction();
-      
+
       const { id } = req.params;
       const id_paciente = req.user.id_usuario;
       const { motivo_cancelacion } = req.body;
-      
-      const [citaRows] = await connection.execute(`
-        SELECT c.*, h.fecha, h.hora_inicio, 
-               TIMESTAMPDIFF(HOUR, NOW(), CONCAT(h.fecha, ' ', h.hora_inicio)) as horas_restantes
-        FROM citas c
-        INNER JOIN horarios h ON c.id_horario = h.id_horario
-        WHERE c.id_cita = ? AND c.id_paciente = ? AND c.id_estado IN (1, 2)
-      `, [id, id_paciente]);
-      
+
+
+      let citaQuery = `
+      SELECT c.*, h.fecha, h.hora_inicio,
+             TIMESTAMPDIFF(HOUR, NOW(), CONCAT(h.fecha, ' ', h.hora_inicio)) as horas_restantes
+      FROM citas c
+      INNER JOIN horarios h ON c.id_horario = h.id_horario
+      WHERE c.id_cita = ?
+    `;
+      const params = [id];
+
+      if (req.user.rol === 'paciente') {
+        citaQuery += ' AND c.id_paciente = ? AND c.id_estado IN (1,2)';
+        params.push(id_paciente);
+      }
+
+      const [citaRows] = await connection.execute(citaQuery, params);
+
       if (citaRows.length === 0) {
         await connection.rollback();
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Cita no encontrada o no se puede cancelar' 
-        });
-      }
-      
-      const cita = citaRows[0];
-      
-      if (cita.horas_restantes < 24) {
-        await connection.rollback();
-        return res.status(400).json({ 
-          success: false, 
-          message: 'No se puede cancelar la cita. Debe hacerlo con al menos 24 horas de anticipación' 
+        return res.status(404).json({
+          success: false,
+          message: 'Cita no encontrada o no se puede cancelar'
         });
       }
 
+      const cita = citaRows[0];
+
+      if (cita.horas_restantes < 24) {
+        return res.status(400).json({ message: 'No se puede cancelar la cita. Debe hacerlo con al menos 24 horas de anticipación' });
+      }
+
+
+      // Actualizar cita
       await connection.execute(`
-        UPDATE citas 
-        SET id_estado = 4, cancelada_por = 'paciente', fecha_cancelacion = NOW(), fecha_actualizacion = NOW()
-        WHERE id_cita = ?
-      `, [id]);
-      
+      UPDATE citas
+      SET id_estado = 4, cancelada_por = ?, fecha_cancelacion = NOW(), fecha_actualizacion = NOW()
+      WHERE id_cita = ?
+    `, ['paciente', id]);
+
+      // Liberar horario
       await connection.execute(
         'UPDATE horarios SET disponible = true WHERE id_horario = ?',
         [cita.id_horario]
       );
-      
+
+      // Registrar auditoría
       await connection.execute(`
-        INSERT INTO auditoria_citas (id_cita, evento, detalle, actor_id_usuario, fecha_evento)
-        VALUES (?, 'cancelada', ?, ?, NOW())
-      `, [id, motivo_cancelacion || 'Cancelada por paciente', id_paciente]);
-      
+      INSERT INTO auditoria_citas (id_cita, evento, detalle, actor_id_usuario, fecha_evento)
+      VALUES (?, 'cancelada', ?, ?, NOW())
+    `, [id, motivo_cancelacion || 'Cancelada por paciente', id_paciente]);
+
       await connection.commit();
-      
-      res.json({ 
-        success: true, 
-        message: 'Cita cancelada exitosamente' 
+
+      res.json({
+        success: true,
+        message: 'Cita cancelada exitosamente'
       });
-      
+
     } catch (error) {
       await connection.rollback();
       console.error('Error al cancelar cita:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error interno del servidor' 
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
       });
     } finally {
       connection.release();

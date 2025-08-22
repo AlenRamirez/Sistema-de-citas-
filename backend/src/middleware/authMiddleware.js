@@ -9,8 +9,12 @@ function authMiddleware(req, res, next) {
     req.user = decoded; // { id_usuario, rol }
     next();
   } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expirado' });
+    }
     res.status(403).json({ message: 'Token inválido' });
   }
+
 }
 
 module.exports = authMiddleware;
