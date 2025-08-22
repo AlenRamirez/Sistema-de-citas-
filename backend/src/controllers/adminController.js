@@ -406,4 +406,150 @@ const adminController = {
         }
     },
 
-}
+
+    // Reportes
+    getReportes: async (req, res) => {
+        try {
+            const { tipo, fecha_inicio, fecha_fin } = req.query;
+
+            let fechaCondition = '';
+            const params = [];
+
+            if (fecha_inicio && fecha_fin) {
+                fechaCondition = 'AND h.fecha BETWEEN ? AND ?';
+                params.push(fecha_inicio, fecha_fin);
+            }
+
+            let reporte = {};
+
+            switch (tipo) {
+                case 'citas_especialidad':
+                    reporte = await pool.query(`
+                        SELECT e.nombre as especialidad, 
+                               COUNT(c.id_cita) as total_citas,
+                               SUM(CASE WHEN c.id_estado = 3 THEN 1 ELSE 0 END) as realizadas,
+                               SUM(CASE WHEN c.id_estado = 4 THEN 1 ELSE 0 END) as canceladas,
+                               SUM(CASE WHEN c.id_estado = 5 THEN 1 ELSE 0 END) as no_asistio
+                        FROM especialidades e
+                        LEFT JOIN medico_especialidad me ON e.id_especialidad = me.id_especialidad
+                        LEFT JOIN horarios h ON me.id_medico = h.id_medico
+                        LEFT JOIN citas c ON h.id_horario = c.id_horario
+                        WHERE 1=1 ${fechaCondition}
+                        GROUP BY e.id_especialidad, e.nombre
+                        ORDER BY total_citas DESC
+                    `, params);
+                    break;
+
+                case 'no_asistencia':
+                    reporte = await pool.query(`
+                        SELECT u.nombre_completo as medico,
+                               COUNT(c.id_cita) as total_citas,
+                               SUM(CASE WHEN c.id_estado = 5 THEN 1 ELSE 0 END) as no_asistio,
+                               ROUND((SUM(CASE WHEN c.id_estado = 5 THEN 1 ELSE 0 END) * 100.0 / COUNT(c.id_cita)), 2) as tasa_no_asistencia
+                        FROM usuarios u
+                        INNER JOIN medicos m ON u.id_usuario = m.id_medico
+                        INNER JOIN horarios h ON m.id_medico = h.id_medico
+                        INNER JOIN citas c ON h.id_horario = c.id_horario
+                        WHERE 1=1 ${fechaCondition}
+                        GROUP BY u.id_usuario, u.nombre_completo
+                        HAVING total_citas > 0
+                        ORDER BY tasa_no_asistencia DESC
+                    `, params);
+                    break;
+
+                case 'citas_mensuales':
+                    reporte = await pool.query(`
+                        SELECT DATE_FORMAT(h.fecha, '%Y-%m') as mes,
+                               COUNT(c.id_cita) as total_citas,
+                               SUM(CASE WHEN c.id_estado = 3 THEN 1 ELSE 0 END) as realizadas,
+                               SUM(CASE WHEN c.id_estado = 4 THEN 1 ELSE 0 END) as canceladas
+                        FROM citas c
+                        INNER JOIN horarios h ON c.id_horario = h.id_horario
+                        WHERE 1=1 ${fechaCondition}
+                        GROUP BY DATE_FORMAT(h.fecha, '%Y-%m')
+                        ORDER BY mes DESC
+                    `, params);
+                    break;
+
+                default:
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Tipo de reporte no válido'
+                    });
+            }
+
+            res.json({
+                success: true,
+                data: reporte
+            });
+
+        } catch (error) {
+            console.error('Error al generar reporte:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al generar reporte'
+            });
+        }
+    },
+
+    // Gestión de especialidades
+    getEspecialidades: async (req, res) => {
+        try {
+            const especialidades = await pool.query(`
+                SELECT id_especialidad, nombre 
+                FROM especialidades 
+                ORDER BY nombre
+            `);
+
+            res.json({
+                success: true,
+                data: especialidades
+            });
+        } catch (error) {
+            console.error('Error al obtener especialidades:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener especialidades'
+            });
+        }
+    },
+
+    createEspecialidad: async (req, res) => {
+        try {
+            const { nombre } = req.body;
+
+            // Verificar que no exista
+            const existing = await pool.query(
+                'SELECT id_especialidad FROM especialidades WHERE nombre = ?',
+                [nombre]
+            );
+
+            if (existing.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'La especialidad ya existe'
+                });
+            }
+
+            const result = await pool.query(
+                'INSERT INTO especialidades (nombre) VALUES (?)',
+                [nombre]
+            );
+
+            res.status(201).json({
+                success: true,
+                message: 'Especialidad creada correctamente',
+                data: { id_especialidad: result.insertId }
+            });
+
+        } catch (error) {
+            console.error('Error al crear especialidad:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al crear especialidad'
+            });
+        }
+    }
+};
+
+module.exports = adminController;
