@@ -159,7 +159,7 @@
             <a class="nav-link" href="agendarcita.html" data-section="agendar">
               <i class="fas fa-plus-circle me-2"></i>Agendar Cita
             </a>
-            <a class="nav-link" href="#" data-section="perfil">
+            <a class="nav-link" href="miperfil.html" data-section="perfil">
               <i class="fas fa-user-edit me-2"></i>Mi Perfil
             </a>
             <hr>
@@ -236,6 +236,36 @@
       </div>
     </div>
   </div>
+  <script>
+    // Función para cerrar sesión
+    function cerrarSesion() {
+      // Si usas sesión en el backend con cookies
+      fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include' // importante para enviar cookies de sesión
+      })
+        .then(response => {
+          if (response.ok) {
+            // Redirige al login
+            window.location.href = 'login.html';
+          } else {
+            alert('No se pudo cerrar sesión. Intenta de nuevo.');
+          }
+        })
+        .catch(error => {
+          console.error('Error al cerrar sesión:', error);
+          alert('Error al cerrar sesión. Intenta de nuevo.');
+        });
+    }
+
+    // Actualizar fecha actual
+    document.getElementById('fechaActual').innerText = new Date().toLocaleDateString('es-ES');
+
+    // Mostrar nombre del paciente desde localStorage o fetch a la API
+    const nombrePaciente = localStorage.getItem('nombrePaciente') || 'Juan Pérez';
+    document.getElementById('nombrePaciente').innerText = nombrePaciente;
+  </script>
+
 </body>
 
 </html>
