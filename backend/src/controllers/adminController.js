@@ -514,42 +514,7 @@ const adminController = {
         }
     },
 
-    createEspecialidad: async (req, res) => {
-        try {
-            const { nombre } = req.body;
-
-            // Verificar que no exista
-            const existing = await pool.query(
-                'SELECT id_especialidad FROM especialidades WHERE nombre = ?',
-                [nombre]
-            );
-
-            if (existing.length > 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'La especialidad ya existe'
-                });
-            }
-
-            const result = await pool.query(
-                'INSERT INTO especialidades (nombre) VALUES (?)',
-                [nombre]
-            );
-
-            res.status(201).json({
-                success: true,
-                message: 'Especialidad creada correctamente',
-                data: { id_especialidad: result.insertId }
-            });
-
-        } catch (error) {
-            console.error('Error al crear especialidad:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Error al crear especialidad'
-            });
-        }
-    }
+    
 };
 
 module.exports = adminController;
