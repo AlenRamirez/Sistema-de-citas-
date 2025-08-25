@@ -317,4 +317,41 @@
                         </div>
                     </div>
 
-                   
+                    <!-- Citas Section -->
+                    <div id="citas" class="content-section" style="display:none;">
+                        <h2><i class="fas fa-calendar-check text-primary me-2"></i>Citas</h2>
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Paciente</th>
+                                    <th>Médico</th>
+                                    <th>Fecha</th>
+                                    <th>Hora</th>
+                                    <th>Estado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Juan Pérez</td>
+                                    <td>Dr. López</td>
+                                    <td>2025-08-25</td>
+                                    <td>10:00</td>
+                                    <td id="cita-1">Pendiente</td>
+                                    <td><button class="btn btn-danger btn-sm"
+                                            onclick="cancelarCita(1)">Cancelar</button></td>
+                                </tr>
+                                <tr>
+                                    <td>María López</td>
+                                    <td>Dra. Ruiz</td>
+                                    <td>2025-08-26</td>
+                                    <td>11:00</td>
+                                    <td id="cita-2">Confirmada</td>
+                                    <td><button class="btn btn-danger btn-sm"
+                                            onclick="cancelarCita(2)">Cancelar</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                  
