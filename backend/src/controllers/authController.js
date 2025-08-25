@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { sendConfirmationcorreo, sendRecoveryEmail } = require("../utils/mailer");
 
-//register
+// REGISTER
 exports.register = async (req, res) => {
   const { nombre_completo, documento, correo, telefono, password } = req.body;
 
@@ -16,7 +16,6 @@ exports.register = async (req, res) => {
   }
 
   try {
-
     const [existCorreo] = await pool.query('SELECT * FROM usuarios WHERE correo=?', [correo]);
     if (existCorreo.length > 0) return res.status(400).json({ message: 'Correo ya registrado' });
 
@@ -25,9 +24,9 @@ exports.register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-  const [result] = await pool.query(
+    const [result] = await pool.query(
       'INSERT INTO usuarios (nombre_completo, documento, correo, telefono, password_hash, id_rol) VALUES (?, ?, ?, ?, ?, ?)',
-      [nombre_completo, documento, correo, telefono, hashedPassword, 2] 
+      [nombre_completo, documento, correo, telefono, hashedPassword, 2]
     );
 
     const newUserId = result.insertId;
@@ -38,59 +37,15 @@ exports.register = async (req, res) => {
     );
 
     await sendConfirmationcorreo(correo, nombre_completo);
-    
 
     res.status(201).json({ message: 'Paciente registrado. Se ha enviado un correo de confirmación.' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error registrando usuario', error: error.message });
   }
-}; 
+};
 
-
-function authMiddleware(req, res, next) {
-  const token = req.headers['authorization']?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Token requerido' });
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id_usuario, rol }
-
-
-    req.userRole = decoded.rol;
-
-    next();
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Token expirado' });
-    }
-    res.status(403).json({ message: 'Token inválido' });
-  }
-}
-// Añadir AL FINAL, después de todas las rutas
-app.use((err, req, res, next) => {
-  console.error('❌ Error en servidor:', err);
-  res.status(500).json({
-    success: false,
-    message: 'Error interno del servidor',
-    error: err.message
-  });
-});
-
-// Para rutas no encontradas
-app.use('*', (req, res) => {
-  console.log(`⚠️  Ruta no encontrada: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({
-    success: false,
-    message: `Ruta ${req.method} ${req.originalUrl} no encontrada`
-  });
-});
-
-module.exports = authMiddleware;
-
-
-//Login
-
+// LOGIN
 exports.login = async (req, res) => {
   const { correo, password } = req.body;
 
@@ -99,7 +54,6 @@ exports.login = async (req, res) => {
       "SELECT id_usuario, correo, password_hash, id_rol, intentos_fallidos, bloqueado_hasta FROM usuarios WHERE correo = ?",
       [correo]
     );
-
 
     if (rows.length === 0) {
       return res.status(400).json({ message: "Usuario no encontrado" });
@@ -119,7 +73,6 @@ exports.login = async (req, res) => {
       let intentos = user.intentos_fallidos + 1;
 
       if (intentos >= 3) {
-
         const bloqueadoHasta = new Date(Date.now() + 15 * 60 * 1000);
         await pool.query(
           "UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = ? WHERE id_usuario = ?",
@@ -146,7 +99,7 @@ exports.login = async (req, res) => {
       {
         id_usuario: user.id_usuario,
         correo: user.correo,
-        rol: user.id_rol === 2 ? 'paciente' : 'admin' 
+        rol: user.id_rol === 2 ? 'paciente' : 'admin'
       },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
@@ -158,7 +111,8 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Error en el servidor" });
   }
 };
-//RESTABLECER PASS
+
+// FORGOT PASSWORD
 exports.forgotPassword = async (req, res) => {
   const { correo } = req.body;
 
@@ -189,48 +143,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-function authMiddleware(req, res, next) {
-  const token = req.headers['authorization']?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Token requerido' });
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id_usuario, rol }
-
-
-    req.userRole = decoded.rol;
-
-    next();
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Token expirado' });
-    }
-    res.status(403).json({ message: 'Token inválido' });
-  }
-}
-// Añadir AL FINAL, después de todas las rutas
-app.use((err, req, res, next) => {
-  console.error('❌ Error en servidor:', err);
-  res.status(500).json({
-    success: false,
-    message: 'Error interno del servidor',
-    error: err.message
-  });
-});
-
-// Para rutas no encontradas
-app.use('*', (req, res) => {
-  console.log(`⚠️  Ruta no encontrada: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({
-    success: false,
-    message: `Ruta ${req.method} ${req.originalUrl} no encontrada`
-  });
-});
-
-module.exports = authMiddleware;
-
-
-// RESTABLECER CONTRASEÑA usando tabla separada
+// RESET PASSWORD
 exports.resetPassword = async (req, res) => {
   const { token } = req.params;
   const { nuevaContrasena } = req.body;

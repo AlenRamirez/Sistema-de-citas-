@@ -44,17 +44,8 @@ app.use('/admin', adminRoutes);        // Crea: /admin/*
 
 app.get('/', (req, res) => res.send('API funcionando'));
 
-console.log('=== SERVIDOR INICIADO ===');
-console.log('Rutas disponibles:');
-console.log('POST /register');
-console.log('POST /login');
-console.log('POST /forgot-password');
-console.log('POST /reset-password/:token');
-console.log('GET /');
-console.log('========================');
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor ejecutándose en http://localhost:${PORT}`);
-  console.log(`📚 Documentación en http://localhost:${PORT}/api-docs`);
+  console.log(` Servidor ejecutándose en http://localhost:${PORT}`);
+  console.log(` Documentación en http://localhost:${PORT}/api-docs`);
 });
