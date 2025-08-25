@@ -29,6 +29,10 @@
       margin-top: 110px;
     }
 
+    .tab-pane#register form {
+      margin-top: 25px;
+    }
+
     .navbar-custom {
       background-color: #004e89;
     }
@@ -192,9 +196,9 @@
       <div class="tab-pane fade" id="register" role="tabpanel">
         <form id="registerForm">
           <input type="text" class="form-control" id="nombre" placeholder="Nombre completo" required>
-          <input type="text" class="form-control" id="documento" placeholder="Documento" required>
+          <input type="number" class="form-control" id="documento" placeholder="Documento" required>
           <input type="email" class="form-control" id="correoRegistro" placeholder="Correo electrónico" required>
-          <input type="text" class="form-control" id="telefono" placeholder="Teléfono" required>
+          <input type="number" class="form-control" id="telefono" placeholder="Teléfono" required>
 
           <div class="password-container">
             <input type="password" class="form-control" id="passwordRegistro" placeholder="Contraseña" required>
@@ -237,9 +241,9 @@
     function showMessage(elementId, message, type) {
       const messageDiv = document.getElementById(elementId);
       messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show">
-          ${message}
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>`;
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>`;
     }
 
     function toggleLoading(button, loading) {
@@ -253,10 +257,10 @@
       }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', function () {
       // LOGIN
       const loginForm = document.getElementById('loginForm');
-      loginForm.addEventListener('submit', async e => {
+      loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const button = e.target.querySelector('button[type="submit"]');
         const correo = document.getElementById('correoLogin').value;
@@ -270,22 +274,26 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ correo, password })
           });
-
           const data = await response.json();
 
           if (response.ok) {
             localStorage.setItem('token', data.token);
-            const userRole = data.id_rol === 1 ? 'admin' : 'paciente';
+
+            // Decodificar token para obtener rol
+            const tokenPayload = JSON.parse(atob(data.token.split('.')[1]));
+            const userRole = tokenPayload.rol;
+
             showMessage('loginMessage', '✅ Login exitoso. Redirigiendo...', 'success');
+
             setTimeout(() => {
-              window.location.href = userRole === 'admin' ? 'admin/dashboardA.html' : 'paciente/dashboardP.html';
-            }, 1500);
+              if (userRole === 'admin') window.location.href = 'admin/dashboardA.html';
+              else window.location.href = 'paciente/dashboardP.html';
+            }, 1200);
           } else {
             showMessage('loginMessage', `❌ ${data.message}`, 'danger');
           }
-        } catch (err) {
-          showMessage('loginMessage', '❌ Error de conexión.', 'danger');
-          console.error(err);
+        } catch (error) {
+          showMessage('loginMessage', '❌ Error de conexión al servidor', 'danger');
         } finally {
           toggleLoading(button, false);
         }
@@ -293,10 +301,9 @@
 
       // REGISTRO
       const registerForm = document.getElementById('registerForm');
-      registerForm.addEventListener('submit', async e => {
+      registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const button = e.target.querySelector('button[type="submit"]');
-
         const nombre_completo = document.getElementById('nombre').value;
         const documento = document.getElementById('documento').value;
         const correo = document.getElementById('correoRegistro').value;
@@ -305,7 +312,7 @@
 
         const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
         if (!passwordRegex.test(password)) {
-          showMessage('registerMessage', '❌ La contraseña debe tener mínimo 8 caracteres, 1 mayúscula, 1 número y 1 carácter especial.', 'danger');
+          showMessage('registerMessage', '❌ Contraseña inválida', 'danger');
           return;
         }
 
@@ -317,19 +324,17 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nombre_completo, documento, correo, telefono, password })
           });
-
           const data = await response.json();
 
           if (response.ok) {
             showMessage('registerMessage', '✅ ' + data.message, 'success');
             registerForm.reset();
-            setTimeout(() => document.getElementById('login-tab').click(), 2000);
+            setTimeout(() => document.getElementById('login-tab').click(), 1500);
           } else {
             showMessage('registerMessage', `❌ ${data.message}`, 'danger');
           }
-        } catch (err) {
-          showMessage('registerMessage', '❌ Error de conexión.', 'danger');
-          console.error(err);
+        } catch (error) {
+          showMessage('registerMessage', '❌ Error de conexión al servidor', 'danger');
         } finally {
           toggleLoading(button, false);
         }
