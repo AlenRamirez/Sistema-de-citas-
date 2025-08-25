@@ -9,6 +9,7 @@
   <!-- Bootstrap & Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
   <style>
     body {
@@ -62,7 +63,7 @@
       transform: translateY(-5px);
     }
 
-    /* Botones estilo login */
+    /* Botones */
     .btn-primary {
       background: linear-gradient(45deg, #1e3c72, #2a5298);
       border: none;
@@ -75,7 +76,7 @@
       background: linear-gradient(45deg, #2a5298, #1e3c72);
     }
 
-    /* Citas / Usuarios */
+    /* Citas */
     .item-card {
       border-left: 4px solid;
       padding: 15px;
@@ -102,8 +103,15 @@
       border-left-color: #dc3545;
     }
 
+    /* Loading */
     .loading {
       display: none;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .loading.show {
+      display: block;
     }
 
     .fade-in {
@@ -122,7 +130,7 @@
       }
     }
 
-    /* Perfil editable */
+    /* Perfil */
     .profile-container {
       background: #fff;
       border-radius: 15px;
@@ -134,6 +142,7 @@
       display: flex;
       gap: 20px;
       margin-bottom: 20px;
+      align-items: center;
     }
 
     .profile-header img {
@@ -141,6 +150,7 @@
       height: 120px;
       border-radius: 50%;
       border: 3px solid #1e3c72;
+      object-fit: cover;
     }
 
     .profile-info {
@@ -165,6 +175,7 @@
       padding: 8px;
       border-radius: 6px;
       border: 1px solid #ccc;
+      margin-bottom: 10px;
     }
 
     .btn-edit,
@@ -175,7 +186,7 @@
       border-radius: 8px;
       padding: 8px 16px;
       font-weight: bold;
-      margin-top: 15px;
+      margin: 5px;
       cursor: pointer;
     }
 
@@ -192,10 +203,11 @@
       display: block;
     }
 
-    /* Agendar cita horarios */
+    /* Horarios */
     .horarios button.active {
-      background-color: #1e3c72;
-      color: #fff;
+      background-color: #1e3c72 !important;
+      color: #fff !important;
+      border-color: #1e3c72 !important;
     }
 
     .form-container {
@@ -203,8 +215,25 @@
       padding: 25px;
       border-radius: 15px;
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
-      max-width: 500px;
+      max-width: 600px;
       margin: 0 auto;
+    }
+
+    .alert {
+      border-radius: 10px;
+      margin-bottom: 15px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      color: #ddd;
+      margin-bottom: 15px;
     }
   </style>
 </head>
@@ -216,18 +245,26 @@
       <div class="col-md-3 col-lg-2 sidebar">
         <div class="text-center mb-4">
           <i class="bi bi-person-circle fs-1 mb-2"></i>
-          <h5 id="nombrePaciente">Bienvenido</h5>
+          <h5 id="nombrePaciente">Cargando...</h5>
           <small>Paciente</small>
         </div>
         <nav class="nav flex-column">
-          <a class="nav-link active" href="#" data-section="dashboard"><i class="bi bi-speedometer2 me-2"></i>Panel
-            Principal</a>
-          <a class="nav-link" href="#" data-section="mis-citas"><i class="bi bi-calendar-check me-2"></i>Mis Citas</a>
-          <a class="nav-link" href="#" data-section="agendar"><i class="bi bi-plus-circle me-2"></i>Agendar Cita</a>
-          <a class="nav-link" href="#" data-section="perfil"><i class="bi bi-person-edit me-2"></i>Mi Perfil</a>
+          <a class="nav-link active" href="#" data-section="dashboard">
+            <i class="bi bi-speedometer2 me-2"></i>Panel Principal
+          </a>
+          <a class="nav-link" href="#" data-section="mis-citas">
+            <i class="bi bi-calendar-check me-2"></i>Mis Citas
+          </a>
+          <a class="nav-link" href="#" data-section="agendar">
+            <i class="bi bi-plus-circle me-2"></i>Agendar Cita
+          </a>
+          <a class="nav-link" href="#" data-section="perfil">
+            <i class="bi bi-person-edit me-2"></i>Mi Perfil
+          </a>
           <hr>
-          <a class="nav-link text-danger" href="#" onclick="cerrarSesion()"><i
-              class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión</a>
+          <a class="nav-link text-danger" href="#" onclick="cerrarSesion()">
+            <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
+          </a>
         </nav>
       </div>
 
@@ -237,73 +274,82 @@
           <!-- Dashboard -->
           <div id="dashboard" class="content-section active">
             <h2>Panel Principal</h2>
-            <div class="row mb-4">
-              <div class="col-md-3">
-                <div class="card text-center">
-                  <div class="card-body"><i class="bi bi-calendar-check fs-3 text-primary mb-2"></i>
-                    <h3 id="totalCitasActivas">2</h3><small>Citas Activas</small>
-                  </div>
-                </div>
+            <div class="loading">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
               </div>
-              <div class="col-md-3">
-                <div class="card text-center">
-                  <div class="card-body"><i class="bi bi-clock fs-3 text-warning mb-2"></i>
-                    <h3 id="citasProximas">1</h3><small>Próximas Citas</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="card text-center">
-                  <div class="card-body"><i class="bi bi-check-circle fs-3 text-success mb-2"></i>
-                    <h3 id="citasRealizadas">1</h3><small>Citas Realizadas</small>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="card text-center">
-                  <div class="card-body"><i class="bi bi-x-circle fs-3 text-danger mb-2"></i>
-                    <h3 id="citasCanceladas">0</h3><small>Citas Canceladas</small>
-                  </div>
-                </div>
-              </div>
+              <p>Cargando estadísticas...</p>
             </div>
+            <div id="dashboardStats" class="row mb-4"></div>
           </div>
 
           <!-- Mis Citas -->
           <div id="mis-citas" class="content-section">
-            <h2>Mis Citas</h2>
-            <div class="item-card item-pendiente"><strong>Consulta General</strong><br><small>15/09/2025 · 10:00 AM |
-                Dr. Juan Pérez</small></div>
-            <div class="item-card item-confirmada"><strong>Odontología</strong><br><small>20/09/2025 · 03:00 PM | Dra.
-                María Gómez</small></div>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <h2>Mis Citas</h2>
+              <div class="d-flex gap-2">
+                <select id="filtroEstado" class="form-select form-select-sm">
+                  <option value="">Todos los estados</option>
+                  <option value="Pendiente">Pendientes</option>
+                  <option value="Confirmada">Confirmadas</option>
+                  <option value="Realizada">Realizadas</option>
+                  <option value="Cancelada">Canceladas</option>
+                </select>
+                <button class="btn btn-primary btn-sm" onclick="cargarMisCitas()">
+                  <i class="bi bi-arrow-clockwise"></i>
+                </button>
+              </div>
+            </div>
+            <div class="loading">
+              <div class="spinner-border text-primary" role="status"></div>
+              <p>Cargando citas...</p>
+            </div>
+            <div id="citasContainer"></div>
           </div>
 
           <!-- Agendar Cita -->
           <div id="agendar" class="content-section">
             <div class="form-container">
-              <h2>Agendar Cita</h2>
+              <h2 class="mb-4">Agendar Nueva Cita</h2>
+              <div id="alertContainer"></div>
+
               <form id="citaForm">
                 <div class="mb-3">
-                  <label>Seleccionar Doctor</label>
-                  <select id="doctorSelect" class="form-select" required>
-                    <option value="">-- Selecciona un doctor --</option>
-                    <option value="1">Dr. Juan Pérez - Medicina General</option>
-                    <option value="2">Dra. María Gómez - Odontología</option>
-                    <option value="3">Dr. Carlos Ruiz - Dermatología</option>
+                  <label class="form-label">Especialidad</label>
+                  <select id="especialidadSelect" class="form-select">
+                    <option value="">-- Selecciona una especialidad --</option>
                   </select>
                 </div>
+
                 <div class="mb-3">
-                  <label>Seleccionar Fecha</label>
-                  <input type="date" id="fechaCita" class="form-control" placeholder="Elige una fecha" readonly required>
+                  <label class="form-label">Médico</label>
+                  <select id="medicoSelect" class="form-select" disabled>
+                    <option value="">-- Primero selecciona una especialidad --</option>
+                  </select>
                 </div>
+
                 <div class="mb-3">
-                  <label>Disponibilidad Horaria</label>
-                  <div class="horarios d-flex flex-wrap" id="horariosContainer">
-                    <p class="text-muted">Selecciona un doctor y fecha.</p>
+                  <label class="form-label">Fecha</label>
+                  <input type="text" id="fechaCita" class="form-control" placeholder="Selecciona una fecha" readonly>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label">Horarios Disponibles</label>
+                  <div class="horarios d-flex flex-wrap gap-2" id="horariosContainer">
+                    <p class="text-muted">Selecciona médico y fecha para ver horarios disponibles.</p>
                   </div>
                   <input type="hidden" id="horarioSeleccionado" required>
                 </div>
-                <button type="submit" class="btn btn-primary w-100">Confirmar Cita</button>
+
+                <div class="mb-3">
+                  <label class="form-label">Motivo de la consulta (opcional)</label>
+                  <textarea id="motivoCita" class="form-control" rows="3"
+                    placeholder="Describe brevemente el motivo de tu consulta..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">
+                  <i class="bi bi-calendar-plus me-2"></i>Confirmar Cita
+                </button>
               </form>
             </div>
           </div>
@@ -311,54 +357,57 @@
           <!-- Perfil -->
           <div id="perfil" class="content-section">
             <div class="profile-container">
-              <div class="profile-header">
-                <img src="https://i.pravatar.cc/150?img=12" alt="Avatar">
-                <div class="profile-info">
-                  <div class="field"><span class="field-label">Nombre:</span> <span id="nombreDisplay">Juan Pérez</span>
-                  </div>
-                  <div class="field"><span class="field-label">Correo:</span> <span
-                      id="correoDisplay">juan.perez@email.com</span></div>
-                  <div class="field"><span class="field-label">Teléfono:</span> <span
-                      id="telefonoDisplay">310-123-4567</span></div>
-                  <div class="field"><span class="field-label">Fecha Nac.:</span> <span
-                      id="fechaDisplay">12/06/2006</span></div>
-                  <div class="field"><span class="field-label">Sexo:</span> <span id="sexoDisplay">Masculino</span>
-                  </div>
-                  <div class="field"><span class="field-label">EPS:</span> <span id="epsDisplay">Sanitas</span></div>
-                  <div class="field"><span class="field-label">Alergias:</span> <span
-                      id="alergiasDisplay">Ninguna</span></div>
-                  <div class="field"><span class="field-label">Contacto emergencia:</span> <span
-                      id="contactoDisplay">Maria Pérez - 310-555-5555</span></div>
-                  <div class="field"><span class="field-label">Teléfono emergencia:</span> <span
-                      id="telefonoEmerDisplay">310-555-5555</span></div>
-                </div>
+              <div class="loading">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p>Cargando perfil...</p>
               </div>
-              <button class="btn-edit" id="editarBtn">Editar Perfil</button>
-              <form id="editForm">
-                <div class="row">
-                  <div class="col-md-6"><label>Nombre</label><input type="text" id="nombreInput" value="Juan Pérez">
+              <div id="perfilContent" style="display: none;">
+                <div class="profile-header">
+                  <img src="https://i.pravatar.cc/150?img=12" alt="Avatar">
+                  <div class="profile-info" id="profileInfo">
+                    <!-- Se carga dinámicamente -->
                   </div>
-                  <div class="col-md-6"><label>Correo</label><input type="email" id="correoInput"
-                      value="juan.perez@email.com"></div>
-                  <div class="col-md-6"><label>Teléfono</label><input type="text" id="telefonoInput"
-                      value="310-123-4567"></div>
-                  <div class="col-md-6"><label>Fecha de nacimiento</label><input type="date" id="fechaInput"
-                      value="2006-06-12"></div>
-                  <div class="col-md-6"><label>Sexo</label><select id="sexoInput">
-                      <option value="M">Masculino</option>
-                      <option value="F">Femenino</option>
-                      <option value="O">Otro</option>
-                    </select></div>
-                  <div class="col-md-6"><label>EPS</label><input type="text" id="epsInput" value="Sanitas"></div>
-                  <div class="col-md-6"><label>Alergias</label><input type="text" id="alergiasInput" value="Ninguna">
-                  </div>
-                  <div class="col-md-6"><label>Contacto de emergencia</label><input type="text" id="contactoInput"
-                      value="Maria Pérez - 310-555-5555"></div>
-                  <div class="col-md-6"><label>Teléfono de emergencia</label><input type="text" id="telefonoEmerInput"
-                      value="310-555-5555"></div>
                 </div>
-                <button type="button" class="btn-save" id="guardarBtn">Guardar Cambios</button>
-              </form>
+                <button class="btn-edit" id="editarBtn">Editar Perfil</button>
+
+                <form id="editForm">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <label>Nombre Completo</label>
+                      <input type="text" id="nombreInput" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                      <label>Teléfono</label>
+                      <input type="text" id="telefonoInput" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                      <label>Fecha de nacimiento</label>
+                      <input type="date" id="fechaInput" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                      <label>Sexo</label>
+                      <select id="sexoInput" class="form-control">
+                        <option value="">Seleccionar</option>
+                        <option value="M">Masculino</option>
+                        <option value="F">Femenino</option>
+                        <option value="O">Otro</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label>EPS</label>
+                      <input type="text" id="epsInput" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                      <label>Alergias</label>
+                      <input type="text" id="alergiasInput" class="form-control">
+                    </div>
+                  </div>
+                  <div class="mt-3">
+                    <button type="button" class="btn-save" id="guardarBtn">Guardar Cambios</button>
+                    <button type="button" class="btn btn-secondary" id="cancelarBtn">Cancelar</button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>
@@ -369,74 +418,658 @@
   <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
   <script>
-    // Navegación secciones
-    document.querySelectorAll('.nav-link').forEach(link => {
+    // Configuración de la API
+    const API_BASE_URL = 'http://localhost:3000';
+
+    // Token de autenticación (debería obtenerse del login)
+    let authToken = localStorage.getItem('authToken');
+    let currentUser = null;
+
+    // Verificar autenticación al cargar
+    if (!authToken) {
+      alert('No hay sesión activa. Redirigiendo al login...');
+      window.location.href = '../Acceso.html';
+    }
+
+    // Función para hacer peticiones a la API
+    async function apiRequest(endpoint, options = {}) {
+      const url = `${API_BASE_URL}${endpoint}`;
+      const config = {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+          ...options.headers
+        },
+        ...options
+      };
+
+      try {
+        const response = await fetch(url, config);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || `Error ${response.status}`);
+        }
+
+        return data;
+      } catch (error) {
+        console.error('Error en API:', error);
+        if (error.message.includes('401') || error.message.includes('403')) {
+          localStorage.removeItem('authToken');
+          alert('Sesión expirada. Redirigiendo al login...');
+          window.location.href = '../Acceso.html';
+        }
+        throw error;
+      }
+    }
+
+    // Función para mostrar alertas
+    function showAlert(message, type = 'info', containerId = 'alertContainer') {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type} alert-dismissible fade show`;
+      alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      `;
+
+      container.innerHTML = '';
+      container.appendChild(alert);
+
+      setTimeout(() => {
+        if (alert.parentNode) {
+          alert.remove();
+        }
+      }, 5000);
+    }
+
+    // Navegación entre secciones
+    document.querySelectorAll('.nav-link[data-section]').forEach(link => {
       link.addEventListener('click', e => {
         e.preventDefault();
+
+        // Actualizar navegación activa
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
         link.classList.add('active');
+
+        // Mostrar sección correspondiente
         document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
-        document.getElementById(link.dataset.section).classList.add('active');
+        const targetSection = document.getElementById(link.dataset.section);
+        targetSection.classList.add('active');
+
+        // Cargar datos específicos de la sección
+        const sectionName = link.dataset.section;
+        switch (sectionName) {
+          case 'dashboard':
+            cargarDashboard();
+            break;
+          case 'mis-citas':
+            cargarMisCitas();
+            break;
+          case 'agendar':
+            cargarDatosAgendar();
+            break;
+          case 'perfil':
+            cargarPerfil();
+            break;
+        }
       });
     });
 
-    // Flatpickr
-    flatpickr("#fechaCita", { dateFormat: "d/m/Y", minDate: "today", disable: [d => d.getDay() === 0] });
+    // Cargar dashboard
+    async function cargarDashboard() {
+      const loading = document.querySelector('#dashboard .loading');
+      const container = document.getElementById('dashboardStats');
 
-    const horariosContainer = document.getElementById("horariosContainer");
-    const doctorSelect = document.getElementById("doctorSelect");
-    const fechaCita = document.getElementById("fechaCita");
-    const horarioSeleccionadoInput = document.getElementById("horarioSeleccionado");
+      loading.classList.add('show');
 
-    const disponibilidad = { "1": ["08:00 AM", "09:00 AM", "11:00 AM", "03:00 PM"], "2": ["10:00 AM", "01:00 PM", "04:00 PM"], "3": ["09:30 AM", "11:30 AM", "02:30 PM"] };
+      try {
+        const response = await apiRequest('/pacientes/citas');
+        const citas = response.data.citas;
 
-    function mostrarHorarios() {
-      horariosContainer.innerHTML = "";
-      const doctor = doctorSelect.value;
-      const fecha = fechaCita.value;
-      if (doctor && fecha) {
-        const horas = disponibilidad[doctor] || [];
-        if (horas.length > 0) {
-          horas.forEach(hora => {
-            const btn = document.createElement("button");
-            btn.type = "button"; btn.className = "btn btn-outline-primary me-1 mb-1"; btn.innerText = hora;
-            btn.onclick = () => { document.querySelectorAll(".horarios button").forEach(b => b.classList.remove("active")); btn.classList.add("active"); horarioSeleccionadoInput.value = hora; }
-            horariosContainer.appendChild(btn);
-          });
-        } else horariosContainer.innerHTML = "<p class='text-danger'>No hay horarios disponibles.</p>";
-      } else horariosContainer.innerHTML = "<p class='text-muted'>Selecciona doctor y fecha.</p>";
+        // Calcular estadísticas
+        const stats = {
+          activas: citas.filter(c => ['Pendiente', 'Confirmada'].includes(c.estado)).length,
+          proximas: citas.filter(c => {
+            const citaFecha = new Date(c.fecha);
+            const hoy = new Date();
+            const diff = citaFecha - hoy;
+            return diff > 0 && diff <= 7 * 24 * 60 * 60 * 1000; // próximos 7 días
+          }).length,
+          realizadas: citas.filter(c => c.estado === 'Realizada').length,
+          canceladas: citas.filter(c => c.estado === 'Cancelada').length
+        };
+
+        container.innerHTML = `
+          <div class="col-md-3">
+            <div class="card text-center">
+              <div class="card-body">
+                <i class="bi bi-calendar-check fs-3 text-primary mb-2"></i>
+                <h3>${stats.activas}</h3>
+                <small>Citas Activas</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card text-center">
+              <div class="card-body">
+                <i class="bi bi-clock fs-3 text-warning mb-2"></i>
+                <h3>${stats.proximas}</h3>
+                <small>Próximas Citas</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card text-center">
+              <div class="card-body">
+                <i class="bi bi-check-circle fs-3 text-success mb-2"></i>
+                <h3>${stats.realizadas}</h3>
+                <small>Citas Realizadas</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="card text-center">
+              <div class="card-body">
+                <i class="bi bi-x-circle fs-3 text-danger mb-2"></i>
+                <h3>${stats.canceladas}</h3>
+                <small>Citas Canceladas</small>
+              </div>
+            </div>
+          </div>
+        `;
+
+      } catch (error) {
+        container.innerHTML = '<div class="col-12"><div class="alert alert-danger">Error al cargar estadísticas</div></div>';
+      } finally {
+        loading.classList.remove('show');
+      }
     }
 
-    doctorSelect.addEventListener("change", mostrarHorarios);
-    fechaCita.addEventListener("change", mostrarHorarios);
+    // Cargar mis citas
+    async function cargarMisCitas() {
+      const loading = document.querySelector('#mis-citas .loading');
+      const container = document.getElementById('citasContainer');
+      const filtroEstado = document.getElementById('filtroEstado').value;
 
-    document.getElementById("citaForm").addEventListener("submit", function (e) {
-      if (!horarioSeleccionadoInput.value) { e.preventDefault(); alert("Selecciona un horario"); }
-      else { alert(`Cita confirmada:\nDoctor: ${doctorSelect.options[doctorSelect.selectedIndex].text}\nFecha: ${fechaCita.value}\nHora: ${horarioSeleccionadoInput.value}`); }
+      loading.classList.add('show');
+
+      try {
+        let endpoint = '/pacientes/citas?';
+        if (filtroEstado) {
+          endpoint += `estado=${filtroEstado}`;
+        }
+
+        const response = await apiRequest(endpoint);
+        const citas = response.data.citas;
+
+        if (citas.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <i class="bi bi-calendar-x"></i>
+              <h4>No hay citas</h4>
+              <p>No tienes citas programadas con los filtros seleccionados.</p>
+            </div>
+          `;
+        } else {
+          container.innerHTML = citas.map(cita => {
+            const estadoClass = {
+              'Pendiente': 'item-pendiente',
+              'Confirmada': 'item-confirmada',
+              'Realizada': 'item-realizada',
+              'Cancelada': 'item-cancelada'
+            }[cita.estado] || 'item-pendiente';
+
+            const fecha = new Date(cita.fecha).toLocaleDateString('es-ES');
+            const hora = cita.hora_inicio;
+
+            return `
+              <div class="item-card ${estadoClass}">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <strong>${cita.especialidades || 'Consulta General'}</strong>
+                    <br>
+                    <small>${fecha} · ${hora} | ${cita.medico_nombre}</small>
+                    ${cita.motivo ? `<br><em class="text-muted">${cita.motivo}</em>` : ''}
+                  </div>
+                  <div>
+                    <span class="badge bg-${getEstadoColor(cita.estado)}">${cita.estado}</span>
+                    ${cita.estado === 'Pendiente' || cita.estado === 'Confirmada' ?
+                `<button class="btn btn-sm btn-outline-danger ms-2" onclick="cancelarCita(${cita.id_cita})">
+                        <i class="bi bi-x-circle"></i>
+                      </button>` : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+
+      } catch (error) {
+        container.innerHTML = '<div class="alert alert-danger">Error al cargar las citas</div>';
+      } finally {
+        loading.classList.remove('show');
+      }
+    }
+
+    function getEstadoColor(estado) {
+      const colors = {
+        'Pendiente': 'warning',
+        'Confirmada': 'success',
+        'Realizada': 'secondary',
+        'Cancelada': 'danger'
+      };
+      return colors[estado] || 'primary';
+    }
+
+    // Cancelar cita
+    async function cancelarCita(idCita) {
+      if (!confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
+        return;
+      }
+
+      try {
+        await apiRequest(`/pacientes/citas/${idCita}`, { method: 'DELETE' });
+        showAlert('Cita cancelada exitosamente', 'success');
+        cargarMisCitas(); // Recargar lista
+      } catch (error) {
+        showAlert(`Error al cancelar la cita: ${error.message}`, 'danger');
+      }
+    }
+
+    // Cargar datos para agendar
+    async function cargarDatosAgendar() {
+      try {
+        // Cargar especialidades (simulated - ajustar según tu API)
+        const especialidadSelect = document.getElementById('especialidadSelect');
+        especialidadSelect.innerHTML = `
+          <option value="">-- Selecciona una especialidad --</option>
+          <option value="1">Medicina General</option>
+          <option value="2">Odontología</option>
+          <option value="3">Dermatología</option>
+        `;
+
+      } catch (error) {
+        console.error('Error al cargar datos para agendar:', error);
+      }
+    }
+
+    // Configurar flatpickr para fechas
+    let fechaPicker;
+
+    function inicializarFechaPicker() {
+      if (fechaPicker) {
+        fechaPicker.destroy();
+      }
+
+      fechaPicker = flatpickr("#fechaCita", {
+        locale: "es",
+        dateFormat: "d/m/Y",
+        minDate: "today",
+        disable: [
+          function (date) {
+            // Deshabilitar domingos
+            return (date.getDay() === 0);
+          }
+        ],
+        onChange: function (selectedDates, dateStr, instance) {
+          if (selectedDates.length > 0) {
+            cargarHorariosDisponibles();
+          }
+        }
+      });
+    }
+
+    // Cargar horarios disponibles
+    async function cargarHorariosDisponibles() {
+      const medicoId = document.getElementById('medicoSelect').value;
+      const fecha = document.getElementById('fechaCita').value;
+      const container = document.getElementById('horariosContainer');
+
+      if (!medicoId || !fecha) {
+        container.innerHTML = '<p class="text-muted">Selecciona médico y fecha para ver horarios disponibles.</p>';
+        return;
+      }
+
+      try {
+        // Convertir fecha al formato requerido por la API
+        const [day, month, year] = fecha.split('/');
+        const fechaISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+        const response = await apiRequest(`/pacientes/medicos-disponibles?medico=${medicoId}&fecha_desde=${fechaISO}&fecha_hasta=${fechaISO}`);
+        const horarios = response.data;
+
+        if (horarios.length === 0) {
+          container.innerHTML = '<p class="text-danger">No hay horarios disponibles para la fecha seleccionada.</p>';
+        } else {
+          container.innerHTML = horarios.map(horario => `
+            <button type="button" class="btn btn-outline-primary me-1 mb-1" 
+                    onclick="seleccionarHorario(${horario.id_horario}, '${horario.hora_inicio}')">
+              ${horario.hora_inicio}
+            </button>
+          `).join('');
+        }
+
+      } catch (error) {
+        container.innerHTML = '<p class="text-danger">Error al cargar horarios disponibles.</p>';
+      }
+    }
+
+    // Seleccionar horario
+    function seleccionarHorario(idHorario, hora) {
+      // Quitar selección anterior
+      document.querySelectorAll('.horarios button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      // Marcar nuevo horario seleccionado
+      event.target.classList.add('active');
+      document.getElementById('horarioSeleccionado').value = idHorario;
+    }
+
+    // Configurar eventos de agendar cita
+    document.getElementById('especialidadSelect').addEventListener('change', function () {
+      const medicoSelect = document.getElementById('medicoSelect');
+      const especialidad = this.value;
+
+      if (!especialidad) {
+        medicoSelect.disabled = true;
+        medicoSelect.innerHTML = '<option value="">-- Primero selecciona una especialidad --</option>';
+        return;
+      }
+
+      // Simular carga de médicos por especialidad
+      medicoSelect.disabled = false;
+      medicoSelect.innerHTML = `
+        <option value="">-- Selecciona un médico --</option>
+        <option value="1">Dr. Juan Pérez</option>
+        <option value="2">Dra. María Gómez</option>
+        <option value="3">Dr. Carlos Ruiz</option>
+      `;
     });
 
-    // Perfil editar
-    const editarBtn = document.getElementById('editarBtn');
-    const guardarBtn = document.getElementById('guardarBtn');
-    const editForm = document.getElementById('editForm');
+    document.getElementById('medicoSelect').addEventListener('change', cargarHorariosDisponibles);
 
-    editarBtn.addEventListener('click', () => { editForm.style.display = 'block'; editarBtn.style.display = 'none'; });
-    guardarBtn.addEventListener('click', () => {
-      document.getElementById('nombreDisplay').innerText = document.getElementById('nombreInput').value;
-      document.getElementById('correoDisplay').innerText = document.getElementById('correoInput').value;
-      document.getElementById('telefonoDisplay').innerText = document.getElementById('telefonoInput').value;
-      document.getElementById('fechaDisplay').innerText = document.getElementById('fechaInput').value.split('-').reverse().join('/');
-      document.getElementById('sexoDisplay').innerText = document.getElementById('sexoInput').selectedOptions[0].text;
-      document.getElementById('epsDisplay').innerText = document.getElementById('epsInput').value;
-      document.getElementById('alergiasDisplay').innerText = document.getElementById('alergiasInput').value;
-      document.getElementById('contactoDisplay').innerText = document.getElementById('contactoInput').value;
-      document.getElementById('telefonoEmerDisplay').innerText = document.getElementById('telefonoEmerInput').value;
-      editForm.style.display = 'none'; editarBtn.style.display = 'block';
-      alert('Perfil actualizado');
+    // Submit del formulario de cita
+    document.getElementById('citaForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const idHorario = document.getElementById('horarioSeleccionado').value;
+      const motivo = document.getElementById('motivoCita').value;
+
+      if (!idHorario) {
+        showAlert('Por favor selecciona un horario disponible', 'warning');
+        return;
+      }
+
+      try {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Agendando...';
+
+        await apiRequest('/pacientes/citas', {
+          method: 'POST',
+          body: JSON.stringify({
+            id_horario: parseInt(idHorario),
+            motivo: motivo || null
+          })
+        });
+
+        showAlert('¡Cita agendada exitosamente!', 'success');
+
+        // Limpiar formulario
+        document.getElementById('citaForm').reset();
+        document.getElementById('horarioSeleccionado').value = '';
+        document.getElementById('horariosContainer').innerHTML = '<p class="text-muted">Selecciona médico y fecha para ver horarios disponibles.</p>';
+
+        // Redirigir a mis citas después de 2 segundos
+        setTimeout(() => {
+          document.querySelector('[data-section="mis-citas"]').click();
+        }, 2000);
+
+      } catch (error) {
+        showAlert(`Error al agendar la cita: ${error.message}`, 'danger');
+      } finally {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-calendar-plus me-2"></i>Confirmar Cita';
+      }
     });
 
-    function cerrarSesion() { alert("Sesión cerrada (simulado)"); }
+    // Filtro de estado en mis citas
+    document.getElementById('filtroEstado').addEventListener('change', cargarMisCitas);
+
+    // Cargar perfil
+    async function cargarPerfil() {
+      const loading = document.querySelector('#perfil .loading');
+      const content = document.getElementById('perfilContent');
+      const profileInfo = document.getElementById('profileInfo');
+
+      loading.style.display = 'block';
+      content.style.display = 'none';
+
+      try {
+        // Obtener ID del usuario actual del token o storage
+        const userId = getUserIdFromToken(); // Implementar esta función
+        const response = await apiRequest(`/pacientes/perfil/${userId}`);
+        const perfil = response.data;
+
+        // Actualizar nombre en sidebar
+        document.getElementById('nombrePaciente').textContent = perfil.nombre_completo || 'Usuario';
+
+        // Mostrar información del perfil
+        profileInfo.innerHTML = `
+          <div class="field">
+            <span class="field-label">Nombre:</span> 
+            <span id="nombreDisplay">${perfil.nombre_completo || 'No especificado'}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Correo:</span> 
+            <span id="correoDisplay">${perfil.correo || 'No especificado'}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Documento:</span> 
+            <span id="documentoDisplay">${perfil.documento || 'No especificado'}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Teléfono:</span> 
+            <span id="telefonoDisplay">${perfil.telefono || 'No especificado'}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Fecha Nac.:</span> 
+            <span id="fechaDisplay">${perfil.fecha_nacimiento ? formatearFecha(perfil.fecha_nacimiento) : 'No especificado'}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Sexo:</span> 
+            <span id="sexoDisplay">${formatearSexo(perfil.sexo) || 'No especificado'}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">EPS:</span> 
+            <span id="epsDisplay">${perfil.eps || 'No especificado'}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Alergias:</span> 
+            <span id="alergiasDisplay">${perfil.alergias || 'Ninguna'}</span>
+          </div>
+        `;
+
+        // Llenar formulario de edición
+        document.getElementById('nombreInput').value = perfil.nombre_completo || '';
+        document.getElementById('telefonoInput').value = perfil.telefono || '';
+        document.getElementById('fechaInput').value = perfil.fecha_nacimiento || '';
+        document.getElementById('sexoInput').value = perfil.sexo || '';
+        document.getElementById('epsInput').value = perfil.eps || '';
+        document.getElementById('alergiasInput').value = perfil.alergias || '';
+
+        currentUser = perfil; // Guardar datos actuales
+
+      } catch (error) {
+        profileInfo.innerHTML = '<div class="alert alert-danger">Error al cargar el perfil</div>';
+      } finally {
+        loading.style.display = 'none';
+        content.style.display = 'block';
+      }
+    }
+
+    // Funciones auxiliares
+    function getUserIdFromToken() {
+      if (!authToken) return null;
+
+      try {
+        // Decodificar el JWT (básico, sin validación)
+        const payload = JSON.parse(atob(authToken.split('.')[1]));
+        return payload.id_usuario || payload.userId || payload.id;
+      } catch (error) {
+        console.error('Error al decodificar token:', error);
+        return null;
+      }
+    }
+
+    function formatearFecha(fecha) {
+      if (!fecha) return '';
+      const date = new Date(fecha);
+      return date.toLocaleDateString('es-ES');
+    }
+
+    function formatearSexo(sexo) {
+      const opciones = {
+        'M': 'Masculino',
+        'F': 'Femenino',
+        'O': 'Otro'
+      };
+      return opciones[sexo] || sexo;
+    }
+
+    // Editar perfil
+    document.getElementById('editarBtn').addEventListener('click', function () {
+      document.getElementById('editForm').style.display = 'block';
+      this.style.display = 'none';
+    });
+
+    document.getElementById('cancelarBtn').addEventListener('click', function () {
+      document.getElementById('editForm').style.display = 'none';
+      document.getElementById('editarBtn').style.display = 'block';
+
+      // Restaurar valores originales
+      if (currentUser) {
+        document.getElementById('nombreInput').value = currentUser.nombre_completo || '';
+        document.getElementById('telefonoInput').value = currentUser.telefono || '';
+        document.getElementById('fechaInput').value = currentUser.fecha_nacimiento || '';
+        document.getElementById('sexoInput').value = currentUser.sexo || '';
+        document.getElementById('epsInput').value = currentUser.eps || '';
+        document.getElementById('alergiasInput').value = currentUser.alergias || '';
+      }
+    });
+
+    document.getElementById('guardarBtn').addEventListener('click', async function () {
+      try {
+        const userId = getUserIdFromToken();
+        if (!userId) {
+          throw new Error('No se pudo obtener el ID del usuario');
+        }
+
+        const datosActualizados = {
+          nombre_completo: document.getElementById('nombreInput').value.trim(),
+          fecha_nacimiento: document.getElementById('fechaInput').value || undefined,
+          sexo: document.getElementById('sexoInput').value || undefined,
+          eps: document.getElementById('epsInput').value.trim() || undefined,
+          alergias: document.getElementById('alergiasInput').value.trim() || undefined
+        };
+
+        // Validaciones básicas
+        if (!datosActualizados.nombre_completo) {
+          throw new Error('El nombre completo es requerido');
+        }
+
+        const originalText = this.textContent;
+        this.disabled = true;
+        this.textContent = 'Guardando...';
+
+        await apiRequest(`/pacientes/perfil/${userId}`, {
+          method: 'PUT',
+          body: JSON.stringify(datosActualizados)
+        });
+
+        // Actualizar visualización
+        document.getElementById('nombreDisplay').textContent = datosActualizados.nombre_completo;
+        document.getElementById('telefonoDisplay').textContent = datosActualizados.telefono || 'No especificado';
+        document.getElementById('fechaDisplay').textContent = datosActualizados.fecha_nacimiento ? formatearFecha(datosActualizados.fecha_nacimiento) : 'No especificado';
+        document.getElementById('sexoDisplay').textContent = formatearSexo(datosActualizados.sexo) || 'No especificado';
+        document.getElementById('epsDisplay').textContent = datosActualizados.eps || 'No especificado';
+        document.getElementById('alergiasDisplay').textContent = datosActualizados.alergias || 'Ninguna';
+
+        // Actualizar nombre en sidebar
+        document.getElementById('nombrePaciente').textContent = datosActualizados.nombre_completo;
+
+        // Ocultar formulario
+        document.getElementById('editForm').style.display = 'none';
+        document.getElementById('editarBtn').style.display = 'block';
+
+        showAlert('Perfil actualizado exitosamente', 'success');
+
+      } catch (error) {
+        showAlert(`Error al actualizar el perfil: ${error.message}`, 'danger');
+      } finally {
+        this.disabled = false;
+        this.textContent = 'Guardar Cambios';
+      }
+    });
+
+    // Cerrar sesión
+    function cerrarSesion() {
+      if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userData');
+        alert('Sesión cerrada exitosamente');
+        window.location.href = '../Acceso.html'; // Ajustar según tu estructura
+      }
+    }
+
+    // Inicialización
+    document.addEventListener('DOMContentLoaded', function () {
+      // Inicializar fecha picker
+      inicializarFechaPicker();
+
+      // Cargar datos iniciales
+      cargarDashboard();
+
+      // Verificar si hay datos del usuario en localStorage
+      const userData = localStorage.getItem('userData');
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          document.getElementById('nombrePaciente').textContent = user.nombre_completo || 'Usuario';
+        } catch (error) {
+          console.error('Error al parsear datos del usuario:', error);
+        }
+      }
+    });
+
+    // Función para debugging (solo en desarrollo)
+    window.debugAPI = {
+      setToken: (token) => {
+        localStorage.setItem('authToken', token);
+        authToken = token;
+        console.log('Token establecido:', token);
+      },
+      getToken: () => authToken,
+      testAPI: async (endpoint) => {
+        try {
+          const result = await apiRequest(endpoint);
+          console.log('Resultado:', result);
+          return result;
+        } catch (error) {
+          console.error('Error:', error);
+          return error;
+        }
+      }
+    };
   </script>
 </body>
 
