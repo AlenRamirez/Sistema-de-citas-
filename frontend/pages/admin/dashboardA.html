@@ -403,4 +403,62 @@
         </div>
     </div>
 
-   
+    <script>
+        const links = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('.content-section');
+        links.forEach(link => {
+            link.addEventListener('click', e => {
+                e.preventDefault();
+                const target = link.dataset.section;
+                sections.forEach(sec => sec.style.display = 'none');
+                document.getElementById(target).style.display = 'block';
+                links.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+            });
+        });
+
+        function cerrarSesion() { alert('Sesión cerrada (simulado)'); }
+        document.getElementById('fechaActual').innerText = new Date().toLocaleDateString('es-ES');
+        const nombreAdmin = localStorage.getItem('nombreAdmin') || 'Administrador';
+        document.getElementById('nombreAdmin').innerText = nombreAdmin;
+
+        // Usuarios
+        function activarUsuario(id) { document.getElementById('estado-' + id).innerText = 'Activo'; alert('Usuario activado (simulado)'); }
+        function desactivarUsuario(id) { document.getElementById('estado-' + id).innerText = 'Inactivo'; alert('Usuario desactivado (simulado)'); }
+        function eliminarUsuario(id) { document.getElementById('tablaUsuarios').querySelector('tr').remove(); alert('Usuario eliminado (simulado)'); }
+
+        // Citas
+        function cancelarCita(id) { document.getElementById('cita-' + id).innerText = 'Cancelada'; alert('Cita cancelada (simulado)'); }
+
+        // Médicos
+        function crearMedico(event) {
+            event.preventDefault();
+            const nombre = document.getElementById('medicoNombre').value.trim();
+            const correo = document.getElementById('medicoCorreo').value.trim();
+            const registro = document.getElementById('medicoRegistro').value.trim();
+            const telefono = document.getElementById('medicoTelefono').value.trim();
+            const bio = document.getElementById('medicoBio').value.trim();
+            const exp = document.getElementById('medicoExp').value.trim();
+            const especialidades = Array.from(document.getElementById('medicoEspecialidades').selectedOptions).map(opt => opt.value);
+            if (!nombre || !correo || !registro || !telefono || !bio || !exp || especialidades.length === 0) { alert('Complete todos los campos y seleccione especialidad'); return; }
+            const li = document.createElement('li'); li.textContent = `${nombre} - ${especialidades.join(', ')}`;
+            document.getElementById('listaMedicos').appendChild(li);
+            alert(`Médico "${nombre}" creado (simulado)`); document.getElementById('formCrearMedico').reset();
+        }
+
+        function crearEspecialidad(event) {
+            event.preventDefault();
+            const nombre = document.getElementById('nuevaEspecialidad').value.trim();
+            if (nombre) {
+                const li = document.createElement('li'); li.textContent = nombre;
+                document.getElementById('listaEspecialidades').appendChild(li);
+                const option = document.createElement('option'); option.value = nombre; option.textContent = nombre; option.selected = true;
+                document.getElementById('medicoEspecialidades').appendChild(option);
+                alert(`Especialidad "${nombre}" agregada (simulado y seleccionada)`);
+                document.getElementById('nuevaEspecialidad').value = '';
+            }
+        }
+    </script>
+</body>
+
+</html>
