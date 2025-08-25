@@ -253,7 +253,68 @@
                         </div>
                     </div>
 
-                
-</body>
+                    <!-- Médicos Section -->
+                    <div id="medicos" class="content-section" style="display:none;">
+                        <h2><i class="fas fa-user-md text-primary me-2"></i>Médicos</h2>
 
-</html>
+                        <!-- Crear Médico -->
+                        <div class="card p-3 mb-3">
+                            <h5>Crear Médico</h5>
+                            <form id="formCrearMedico" onsubmit="crearMedico(event)">
+                                <div class="mb-2"><input type="text" id="medicoNombre" class="form-control"
+                                        placeholder="Nombre completo" required></div>
+                                <div class="mb-2"><input type="email" id="medicoCorreo" class="form-control"
+                                        placeholder="Correo" required></div>
+                                <div class="mb-2"><input type="text" id="medicoRegistro" class="form-control"
+                                        placeholder="Registro profesional" required></div>
+                                <div class="mb-2"><input type="text" id="medicoConsultorio" class="form-control"
+                                        placeholder="Consultorio"></div>
+                                <div class="mb-2"><input type="text" id="medicoTelefono" class="form-control"
+                                        placeholder="Teléfono" required></div>
+                                <div class="mb-2"><textarea id="medicoBio" class="form-control" placeholder="Biografía"
+                                        required></textarea></div>
+                                <div class="mb-2"><input type="number" id="medicoExp" class="form-control"
+                                        placeholder="Años de experiencia" required></div>
+                                <div class="mb-2"><input type="text" id="medicoFoto" class="form-control"
+                                        placeholder="URL Foto"></div>
+                                <div class="mb-2">
+                                    <label>Especialidades:</label>
+                                    <select id="medicoEspecialidades" class="form-control" multiple required>
+                                        <option>Cardiología</option>
+                                        <option>Pediatría</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-primary" type="submit">Crear Médico</button>
+                            </form>
+                        </div>
+
+                        <!-- Médicos Creados -->
+                        <div class="card p-3 mb-3">
+                            <h5>Médicos Creados</h5>
+                            <ul id="listaMedicos">
+                                <li>Dr. López - Cardiología</li>
+                                <li>Dra. Ruiz - Pediatría</li>
+                            </ul>
+                        </div>
+
+                        <!-- Crear Especialidad -->
+                        <div class="card mb-3 p-3">
+                            <h5>Crear Especialidad</h5>
+                            <form id="formCrearEspecialidad" onsubmit="crearEspecialidad(event)">
+                                <div class="mb-2">
+                                    <input type="text" class="form-control" id="nuevaEspecialidad"
+                                        placeholder="Nombre de la especialidad" required>
+                                </div>
+                                <button class="btn btn-primary" type="submit">Agregar Especialidad</button>
+                            </form>
+                            <div class="mt-2">
+                                <strong>Especialidades disponibles:</strong>
+                                <ul id="listaEspecialidades">
+                                    <li>Cardiología</li>
+                                    <li>Pediatría</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                   
