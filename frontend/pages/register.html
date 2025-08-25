@@ -29,7 +29,6 @@
       margin-top: 110px;
     }
 
-    /* ⬅️ Diferente separación para el registro */
     .tab-pane#register form {
       margin-top: 25px;
     }
@@ -94,6 +93,11 @@
       background: linear-gradient(135deg, #005f99, #0077b6);
     }
 
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .password-container {
       position: relative;
     }
@@ -109,6 +113,36 @@
       transform: translateY(-50%);
       cursor: pointer;
       color: #666;
+    }
+
+    .extra-link {
+      display: block;
+      margin-top: 15px;
+      font-size: 0.95rem;
+      color: #004e89;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.3s ease;
+    }
+
+    .extra-link:hover {
+      color: #0077b6;
+      text-decoration: underline;
+    }
+
+    .alert {
+      margin-top: 15px;
+      font-size: 0.9rem;
+    }
+
+    .loading {
+      display: none;
+    }
+
+    .spinner-border {
+      width: 1rem;
+      height: 1rem;
+      margin-right: 5px;
     }
   </style>
 </head>
@@ -136,50 +170,66 @@
           role="tab">Registrarse</button>
       </li>
     </ul>
-    
+
     <!-- Contenido -->
     <div class="tab-content">
       <!-- Inicio de sesión -->
       <div class="tab-pane fade" id="login" role="tabpanel">
-        <!-- Icono hospital SOLO en login -->
         <i class="bi bi-hospital logo"></i>
-        <form>
+        <form id="loginForm">
           <input type="email" class="form-control" id="correoLogin" placeholder="Correo electrónico" required>
           <div class="password-container">
             <input type="password" class="form-control" id="passwordLogin" placeholder="Contraseña" required>
             <i class="bi bi-eye" id="togglePasswordLogin"
               onclick="togglePassword('passwordLogin','togglePasswordLogin')"></i>
           </div>
-          <button type="submit" class="btn btn-primary">Entrar</button>
+          <button type="submit" class="btn btn-primary">
+            <span class="loading"><span class="spinner-border"></span></span>
+            <span class="btn-text">Entrar</span>
+          </button>
+          <a href="resetPass.html" class="extra-link">Recuperar contraseña</a>
         </form>
+        <!-- Contenedor para mensajes de login -->
+        <div id="loginMessage"></div>
       </div>
-    
+
       <!-- Registro -->
       <div class="tab-pane fade show active" id="register" role="tabpanel">
-        <!-- Aquí NO aparece el logo -->
-        <form>
-          <input type="text" class="form-control" id="nombre" placeholder="Nombre completo" oninput="validarNombre(this)"
-            required>
+        <form id="registerForm">
+          <input type="text" class="form-control" id="nombre" placeholder="Nombre completo"
+            oninput="validarNombre(this)" required>
           <input type="number" class="form-control" id="documento" placeholder="Documento" required>
           <input type="email" class="form-control" id="correoRegistro" placeholder="Correo electrónico" required>
           <input type="number" class="form-control" id="telefono" placeholder="Teléfono" required>
-    
+
           <div class="password-container">
             <input type="password" class="form-control" id="passwordRegistro" placeholder="Contraseña" required>
             <i class="bi bi-eye" id="togglePasswordRegistro"
               onclick="togglePassword('passwordRegistro','togglePasswordRegistro')"></i>
           </div>
-    
+          <small class="text-muted">Mínimo 8 caracteres, 1 mayúscula, 1 número y 1 carácter especial</small>
+
           <div class="form-check mt-2 mb-3">
             <input class="form-check-input" type="checkbox" id="terminos" required>
             <label class="form-check-label" for="terminos">Acepto los términos y condiciones</label>
           </div>
-    
-          <button type="submit" class="btn btn-primary">Registrarse</button>
+
+          <button type="submit" class="btn btn-primary">
+            <span class="loading"><span class="spinner-border"></span></span>
+            <span class="btn-text">Registrarse</span>
+          </button>
         </form>
+        <!-- Contenedor para mensajes de registro -->
+        <div id="registerMessage"></div>
       </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    const API_BASE = 'http://localhost:3000/auth';
+    
+
     // Mostrar/ocultar contraseña
     function togglePassword(inputId, iconId) {
       const passwordInput = document.getElementById(inputId);
@@ -195,13 +245,152 @@
       }
     }
 
-    // Validar solo letras en nombre
-    function validarNombre(input) {
-      const regex = /^[a-zA-Z\s]*$/;
-      if (!regex.test(input.value)) {
-        input.value = input.value.replace(/[^a-zA-Z\s]/g, "");
+    
+    // Mostrar mensaje
+    function showMessage(elementId, message, type) {
+      const messageDiv = document.getElementById(elementId);
+      if (messageDiv) {
+        messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show">
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>`;
       }
     }
+
+    // Toggle loading
+    function toggleLoading(button, loading) {
+      const loadingSpan = button.querySelector('.loading');
+
+      if (loadingSpan) {
+        if (loading) {
+          loadingSpan.style.display = 'inline';
+          button.disabled = true;
+        } else {
+          loadingSpan.style.display = 'none';
+          button.disabled = false;
+        }
+      }
+    }
+
+    // Esperar a que el DOM esté completamente cargado
+    document.addEventListener('DOMContentLoaded', function () {
+
+      // LOGIN
+      const loginForm = document.getElementById('loginForm');
+      if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          console.log('Login form submitted'); // Debug
+
+          const button = e.target.querySelector('button[type="submit"]');
+          const correo = document.getElementById('correoLogin').value;
+          const password = document.getElementById('passwordLogin').value;
+
+          console.log('Login data:', { correo, password }); // Debug
+
+          toggleLoading(button, true);
+
+          try {
+            const response = await fetch(`${API_BASE}/auth/login`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ correo, password })
+            });
+
+            const data = await response.json();
+            console.log('Login response:', data); // Debug
+
+            if (response.ok) {
+              localStorage.setItem('token', data.token);
+              showMessage('loginMessage', '✅ Login exitoso. Redirigiendo...', 'success');
+
+              setTimeout(() => {
+                window.location.href = 'dashboard.html';
+              }, 1500);
+            } else {
+              showMessage('loginMessage', `❌ ${data.message}`, 'danger');
+            }
+          } catch (error) {
+            console.error('Login error:', error);
+            showMessage('loginMessage', '❌ Error de conexión. Verifica que el servidor esté funcionando.', 'danger');
+          } finally {
+            toggleLoading(button, false);
+          }
+        });
+      }
+
+      // REGISTRO
+      const registerForm = document.getElementById('registerForm');
+      if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          console.log('Register form submitted'); // Debug
+
+          const button = e.target.querySelector('button[type="submit"]');
+          const nombre_completo = document.getElementById('nombre').value;
+          const documento = document.getElementById('documento').value;
+          const correo = document.getElementById('correoRegistro').value;
+          const telefono = document.getElementById('telefono').value;
+          const password = document.getElementById('passwordRegistro').value;
+
+          console.log('Register data:', { nombre_completo, documento, correo, telefono, password }); // Debug
+
+          // Validar contraseña en frontend
+          const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+          if (!passwordRegex.test(password)) {
+            showMessage('registerMessage', '❌ La contraseña debe tener mínimo 8 caracteres, 1 mayúscula, 1 número y 1 carácter especial.', 'danger');
+            return;
+          }
+
+          toggleLoading(button, true);
+
+          try {
+         const response = await fetch(`${API_BASE}/register`, {  
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                nombre_completo,
+                documento,
+                correo,
+                telefono,
+                password
+              })
+            });
+
+            const data = await response.json();
+            console.log('Register response:', data); // Debug
+
+            if (response.ok) {
+              showMessage('registerMessage', '✅ ' + data.message, 'success');
+              registerForm.reset();
+
+              setTimeout(() => {
+                document.getElementById('login-tab').click();
+              }, 2000);
+            } else {
+              showMessage('registerMessage', `❌ ${data.message}`, 'danger');
+            }
+          } catch (error) {
+            console.error('Register error:', error);
+            showMessage('registerMessage', '❌ Error de conexión. Verifica que el servidor esté funcionando.', 'danger');
+          } finally {
+            toggleLoading(button, false);
+          }
+        });
+      }
+
+      // Verificar token al cargar
+      const token = localStorage.getItem('token');
+      if (token) {
+        console.log('Token found:', token);
+        // Si ya hay token, podrías redirigir al dashboard
+        // window.location.href = 'dashboard.html';
+      }
+    });
   </script>
 </body>
 

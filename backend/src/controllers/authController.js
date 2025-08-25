@@ -45,7 +45,49 @@ exports.register = async (req, res) => {
     console.error(error);
     res.status(500).json({ message: 'Error registrando usuario', error: error.message });
   }
-};
+}; 
+
+
+function authMiddleware(req, res, next) {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'Token requerido' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // { id_usuario, rol }
+
+
+    req.userRole = decoded.rol;
+
+    next();
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expirado' });
+    }
+    res.status(403).json({ message: 'Token inválido' });
+  }
+}
+// Añadir AL FINAL, después de todas las rutas
+app.use((err, req, res, next) => {
+  console.error('❌ Error en servidor:', err);
+  res.status(500).json({
+    success: false,
+    message: 'Error interno del servidor',
+    error: err.message
+  });
+});
+
+// Para rutas no encontradas
+app.use('*', (req, res) => {
+  console.log(`⚠️  Ruta no encontrada: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    success: false,
+    message: `Ruta ${req.method} ${req.originalUrl} no encontrada`
+  });
+});
+
+module.exports = authMiddleware;
+
 
 //Login
 
@@ -146,6 +188,47 @@ exports.forgotPassword = async (req, res) => {
     res.status(500).json({ message: "Error al procesar la solicitud" });
   }
 };
+
+function authMiddleware(req, res, next) {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'Token requerido' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // { id_usuario, rol }
+
+
+    req.userRole = decoded.rol;
+
+    next();
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expirado' });
+    }
+    res.status(403).json({ message: 'Token inválido' });
+  }
+}
+// Añadir AL FINAL, después de todas las rutas
+app.use((err, req, res, next) => {
+  console.error('❌ Error en servidor:', err);
+  res.status(500).json({
+    success: false,
+    message: 'Error interno del servidor',
+    error: err.message
+  });
+});
+
+// Para rutas no encontradas
+app.use('*', (req, res) => {
+  console.log(`⚠️  Ruta no encontrada: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    success: false,
+    message: `Ruta ${req.method} ${req.originalUrl} no encontrada`
+  });
+});
+
+module.exports = authMiddleware;
+
 
 // RESTABLECER CONTRASEÑA usando tabla separada
 exports.resetPassword = async (req, res) => {

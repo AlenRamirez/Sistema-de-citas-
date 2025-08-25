@@ -214,13 +214,114 @@
       }
     }
 
-    // Validar solo letras en nombre
-    function validarNombre(input) {
-      const regex = /^[a-zA-Z\s]*$/;
-      if (!regex.test(input.value)) {
-        input.value = input.value.replace(/[^a-zA-Z\s]/g, "");
-      }
-    }
+  
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const button = e.target.querySelector('button[type="submit"]');
+
+        const correo = document.getElementById('correoLogin').value;
+        const password = document.getElementById('passwordLogin').value;
+
+        toggleLoading(button, true);
+
+        try {
+          const response = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ correo, password })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            // Guardar token en localStorage (o sessionStorage)
+            localStorage.setItem('token', data.token);
+            showMessage('loginMessage', '✅ Login exitoso. Redirigiendo...', 'success');
+
+            // Redirigir después de 1.5 segundos
+            setTimeout(() => {
+              // Aquí rediriges a tu dashboard o página principal
+              window.location.href = 'dashboard.html';
+            }, 1500);
+          } else {
+            showMessage('loginMessage', `❌ ${data.message}`, 'danger');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          showMessage('loginMessage', '❌ Error de conexión. Verifica que el servidor esté funcionando.', 'danger');
+        } finally {
+          toggleLoading(button, false);
+        }
+      });
+
+      // REGISTRO
+      document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const button = e.target.querySelector('button[type="submit"]');
+
+        const nombre_completo = document.getElementById('nombre').value;
+        const documento = document.getElementById('documento').value;
+        const correo = document.getElementById('correoRegistro').value;
+        const telefono = document.getElementById('telefono').value;
+        const password = document.getElementById('passwordRegistro').value;
+
+        // Validar contraseña en frontend
+        const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+        if (!passwordRegex.test(password)) {
+          showMessage('registerMessage', '❌ La contraseña debe tener mínimo 8 caracteres, 1 mayúscula, 1 número y 1 carácter especial.', 'danger');
+          return;
+        }
+
+        toggleLoading(button, true);
+
+        try {
+          const response = await fetch(`${API_BASE}/auth/register`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              nombre_completo,
+              documento,
+              correo,
+              telefono,
+              password
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            showMessage('registerMessage', '✅ ' + data.message, 'success');
+            // Limpiar formulario
+            document.getElementById('registerForm').reset();
+
+            // Cambiar a pestaña de login después de 2 segundos
+            setTimeout(() => {
+              document.getElementById('login-tab').click();
+            }, 2000);
+          } else {
+            showMessage('registerMessage', `❌ ${data.message}`, 'danger');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          showMessage('registerMessage', '❌ Error de conexión. Verifica que el servidor esté funcionando.', 'danger');
+        } finally {
+          toggleLoading(button, false);
+        }
+      });
+
+      // Verificar si hay token al cargar
+      window.addEventListener('load', () => {
+        const token = localStorage.getItem('token');
+        if (token) {
+          // Si ya hay token, podrías redirigir al dashboard
+          // window.location.href = 'dashboard.html';
+        }
+      });
+    </script>
   </script>
 </body>
 
