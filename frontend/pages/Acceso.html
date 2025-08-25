@@ -318,13 +318,14 @@
               setTimeout(() => {
                 // Redirigir según el rol
                 if (userRole === 'admin') {
-                  window.location.href = 'frontend/pages/admin/dashboardA.html';
+                  window.location.href = './admin/dashboardA.html';
                 } else if (userRole === 'paciente') {
-                  window.location.href = 'frontend/pages/paciente/dashboardP.html';
+                  window.location.href = './paciente/dashboardP.html';
+
                 } else {
                   // Fallback por si hay algún rol no esperado
                   console.warn('Rol no reconocido:', userRole);
-                  window.location.href = 'frontend/pages/paciente/dashboardP.html';
+                  window.location.href = 'paciente/dashboardP.html';
                 }
               }, 1500);
             } else {
