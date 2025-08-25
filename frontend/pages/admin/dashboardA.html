@@ -203,4 +203,57 @@
                         </div>
                     </div>
 
-                   
+                    <!-- Usuarios Section -->
+                    <div id="usuarios" class="content-section" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="fas fa-users text-primary me-2"></i>Gestión de Usuarios</h2>
+                        </div>
+                        <div id="usuariosContainer" class="fade-in">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Correo</th>
+                                        <th>Rol</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaUsuarios">
+                                    <tr>
+                                        <td>Juan Pérez</td>
+                                        <td>juan@example.com</td>
+                                        <td>Paciente</td>
+                                        <td id="estado-1">Activo</td>
+                                        <td>
+                                            <button class="btn btn-success btn-sm"
+                                                onclick="activarUsuario(1)">Activar</button>
+                                            <button class="btn btn-warning btn-sm"
+                                                onclick="desactivarUsuario(1)">Desactivar</button>
+                                            <button class="btn btn-danger btn-sm"
+                                                onclick="eliminarUsuario(1)">Eliminar</button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>María López</td>
+                                        <td>maria@example.com</td>
+                                        <td>Médico</td>
+                                        <td id="estado-2">Inactivo</td>
+                                        <td>
+                                            <button class="btn btn-success btn-sm"
+                                                onclick="activarUsuario(2)">Activar</button>
+                                            <button class="btn btn-warning btn-sm"
+                                                onclick="desactivarUsuario(2)">Desactivar</button>
+                                            <button class="btn btn-danger btn-sm"
+                                                onclick="eliminarUsuario(2)">Eliminar</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                
+</body>
+
+</html>
