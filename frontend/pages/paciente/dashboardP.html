@@ -34,6 +34,21 @@
       transition: all 0.3s ease;
     }
 
+    .avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background-color: #4a90e2;
+      /* color de fondo */
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
     .nav-link:hover,
     .nav-link.active {
       background: linear-gradient(45deg, #1e3c72, #2a5298);
@@ -458,7 +473,7 @@
           <div id="perfil" class="content-section">
             <div class="profile-container">
               <div class="profile-header">
-                <img src="" alt="Avatar">
+                <div id="avatar" class="avatar"></div>
                 <div class="profile-info">
                   <div class="field">
                     <span class="field-label">Nombre completo:</span>
@@ -517,7 +532,7 @@
                   </div>
                   <div class="col-md-6">
                     <label>Fecha de Nacimiento</label>
-                    <input type="date" id="fechaInput"required>
+                    <input type="date" id="fechaInput" required>
                   </div>
                   <div class="col-md-6">
                     <label>Sexo</label>
@@ -669,121 +684,154 @@
         return false;
       }
     }
+    
+    // Función para generar iniciales del nombre
+      function generarIniciales(nombreCompleto) {
+        if (!nombreCompleto) return 'U';
 
-    // Cargar perfil del usuario
-    async function cargarPerfil() {
-      try {
-        showLoading(true);
-        const response = await fetch(`${API_BASE_URL}/pacientes/perfil/${currentUser.id_usuario}`, {
-          headers: getAuthHeaders()
-        });
-
-        if (!response.ok) {
-          throw new Error('Error al cargar el perfil');
+        const nombres = nombreCompleto.trim().split(' ');
+        if (nombres.length === 1) {
+          return nombres[0].charAt(0).toUpperCase();
         }
 
-        const result = await response.json();
-        if (result.success) {
-          const perfil = result.data;
+        // Tomar la primera letra del primer nombre y primera letra del primer apellido
+        return (nombres[0].charAt(0) + nombres[nombres.length - 1].charAt(0)).toUpperCase();
+      }
 
-          // Actualizar información en la sidebar
-          const nombrePaciente = document.getElementById('nombrePaciente');
-          if (nombrePaciente) {
-            nombrePaciente.textContent = perfil.nombre_completo || 'Usuario';
+      // Función para actualizar el avatar
+      function actualizarAvatar(nombreCompleto) {
+        const avatar = document.getElementById('avatar');
+        if (avatar) {
+          const iniciales = generarIniciales(nombreCompleto);
+          avatar.textContent = iniciales;
+        }
+      }
+
+      // Modifica la función cargarPerfil existente para incluir la actualización del avatar
+      async function cargarPerfil() {
+        try {
+          showLoading(true);
+          const response = await fetch(`${API_BASE_URL}/pacientes/perfil/${currentUser.id_usuario}`, {
+            headers: getAuthHeaders()
+          });
+
+          if (!response.ok) {
+            throw new Error('Error al cargar el perfil');
           }
 
-          // Actualizar información en el perfil
-          const elementos = {
-            nombreDisplay: perfil.nombre_completo || '-',
-            correoDisplay: perfil.correo || '-',
-            documentoDisplay: perfil.documento || '-',
-            telefonoDisplay: perfil.telefono || '-',
-            fechaDisplay: formatDate(perfil.fecha_nacimiento),
-            sexoDisplay: perfil.sexo === 'M' ? 'Masculino' : perfil.sexo === 'F' ? 'Femenino' : '-',
-            epsDisplay: perfil.eps || '-',
-            contactoeDisplay: perfil.contacto_emergencia || '-',
-            telefonoeDisplay: perfil.telefono_emergencia || '-',
-            alergiasDisplay: perfil.alergias || '-'
+          const result = await response.json();
+          if (result.success) {
+            const perfil = result.data;
+
+            // Actualizar información en la sidebar
+            const nombrePaciente = document.getElementById('nombrePaciente');
+            if (nombrePaciente) {
+              nombrePaciente.textContent = perfil.nombre_completo || 'Usuario';
+            }
+
+            // *** NUEVA LÍNEA: Actualizar avatar con iniciales ***
+            actualizarAvatar(perfil.nombre_completo);
+
+            // Actualizar información en el perfil
+            const elementos = {
+              nombreDisplay: perfil.nombre_completo || '-',
+              correoDisplay: perfil.correo || '-',
+              documentoDisplay: perfil.documento || '-',
+              telefonoDisplay: perfil.telefono || '-',
+              fechaDisplay: formatDate(perfil.fecha_nacimiento),
+              sexoDisplay: perfil.sexo === 'M' ? 'Masculino' : perfil.sexo === 'F' ? 'Femenino' : '-',
+              epsDisplay: perfil.eps || '-',
+              contactoeDisplay: perfil.contacto_emergencia || '-',
+              telefonoeDisplay: perfil.telefono_emergencia || '-',
+              alergiasDisplay: perfil.alergias || '-'
+            };
+
+            Object.entries(elementos).forEach(([id, value]) => {
+              const element = document.getElementById(id);
+              if (element) {
+                element.textContent = value;
+              }
+            });
+
+            // Llenar formulario de edición
+            const inputs = {
+              nombreInput: perfil.nombre_completo || '',
+              telefonoInput: perfil.telefono || '',
+              fechaInput: perfil.fecha_nacimiento || '',
+              sexoInput: perfil.sexo || '',
+              epsInput: perfil.eps || '',
+              contactoeInput: perfil.contacto_emergencia || '',
+              telefonoeInput: perfil.telefono_emergencia || '',
+              alergiasInput: perfil.alergias || ''
+            };
+
+            Object.entries(inputs).forEach(([id, value]) => {
+              const element = document.getElementById(id);
+              if (element) {
+                element.value = value;
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          showAlert('Error al cargar el perfil', 'danger');
+        } finally {
+          showLoading(false);
+        }
+      }
+
+      // También modifica la función actualizarPerfil para actualizar el avatar después de guardar cambios
+      async function actualizarPerfil() {
+        try {
+          showLoading(true);
+
+          const data = {
+            nombre_completo: document.getElementById('nombreInput')?.value,
+            telefono: document.getElementById('telefonoInput')?.value,
+            fecha_nacimiento: document.getElementById('fechaInput')?.value || undefined,
+            sexo: document.getElementById('sexoInput')?.value || undefined,
+            eps: document.getElementById('epsInput')?.value || undefined,
+            contacto_emergencia: document.getElementById('contactoeInput')?.value || undefined,
+            telefono_emergencia: document.getElementById('telefonoeInput')?.value || undefined,
+            alergias: document.getElementById('alergiasInput')?.value || undefined
           };
 
-          Object.entries(elementos).forEach(([id, value]) => {
-            const element = document.getElementById(id);
-            if (element) {
-              element.textContent = value;
-            }
+          const response = await fetch(`${API_BASE_URL}/pacientes/perfil/${currentUser.id_usuario}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(data)
           });
 
-          // Llenar formulario de edición
-          const inputs = {
-            nombreInput: perfil.nombre_completo || '',
-            telefonoDisplay: perfil.telefono || '-',
-            fechaInput: perfil.fecha_nacimiento || '',
-            sexoInput: perfil.sexo || '',
-            epsInput: perfil.eps || '',
-            contactoeDisplay: perfil.contacto_emergencia || '-',
-            telefonoeDisplay: perfil.telefono_emergencia || '-',
-            alergiasInput: perfil.alergias || ''
-          };
+          const result = await response.json();
 
-          Object.entries(inputs).forEach(([id, value]) => {
-            const element = document.getElementById(id);
-            if (element) {
-              element.value = value;
+          if (result.success) {
+            showAlert('Perfil actualizado correctamente', 'success');
+
+            // *** NUEVA LÍNEA: Actualizar avatar inmediatamente con el nuevo nombre ***
+            actualizarAvatar(data.nombre_completo);
+
+            // Actualizar nombre en sidebar también
+            const nombrePaciente = document.getElementById('nombrePaciente');
+            if (nombrePaciente && data.nombre_completo) {
+              nombrePaciente.textContent = data.nombre_completo;
             }
-          });
+
+            await cargarPerfil();
+            const editForm = document.getElementById('editForm');
+            const editarBtn = document.getElementById('editarBtn');
+            if (editForm) editForm.style.display = 'none';
+            if (editarBtn) editarBtn.style.display = 'block';
+          } else {
+            showAlert(result.message || 'Error al actualizar perfil', 'danger');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          showAlert('Error al actualizar perfil', 'danger');
+        } finally {
+          showLoading(false);
         }
-      } catch (error) {
-        console.error('Error:', error);
-        showAlert('Error al cargar el perfil', 'danger');
-      } finally {
-        showLoading(false);
       }
-    }
-
-    // Actualizar perfil
-    async function actualizarPerfil() {
-      try {
-        showLoading(true);
-
-        const data = {
-          nombre_completo: document.getElementById('nombreInput')?.value,
-          telefono: document.getElementById('telefonoInput')?.value,
-          fecha_nacimiento: document.getElementById('fechaInput')?.value || undefined,
-          sexo: document.getElementById('sexoInput')?.value || undefined,
-          eps: document.getElementById('epsInput')?.value || undefined,
-          contacto_emergencia: document.getElementById('contactoeInput')?.value || undefined,
-          telefono_emergencia: document.getElementById('telefonoeInput')?.value || undefined,
-          alergias: document.getElementById('alergiasInput')?.value || undefined
-        };
-
-        const response = await fetch(`${API_BASE_URL}/pacientes/perfil/${currentUser.id_usuario}`, {
-          method: 'PUT',
-          headers: getAuthHeaders(),
-          body: JSON.stringify(data)
-        });
-     
-
-
-        const result = await response.json();
-
-        if (result.success) {
-          showAlert('Perfil actualizado correctamente', 'success');
-          await cargarPerfil();
-          const editForm = document.getElementById('editForm');
-          const editarBtn = document.getElementById('editarBtn');
-          if (editForm) editForm.style.display = 'none';
-          if (editarBtn) editarBtn.style.display = 'block';
-        } else {
-          showAlert(result.message || 'Error al actualizar perfil', 'danger');
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        showAlert('Error al actualizar perfil', 'danger');
-      } finally {
-        showLoading(false);
-      }
-    }
-
+      
     // Cargar mis citas
     async function cargarMisCitas(page = 1, filtros = {}) {
       try {
@@ -1049,7 +1097,7 @@
     async function cargarDatosAgendar() {
       try {
         console.log('Cargando datos para agendar...');
-        
+
         // Cargar médicos
         const respMedicos = await fetch(`${API_BASE_URL}/pacientes/medicos-disponibles`, {
           headers: getAuthHeaders()
@@ -1060,12 +1108,12 @@
         if (respMedicos.ok) {
           const medicos = await respMedicos.json();
           console.log('Médicos recibidos:', medicos);
-          
+
           const select = document.getElementById('medicoSelect');
           if (select && medicos.success) {
             // Limpiar opciones existentes excepto la primera
             select.innerHTML = '<option value="">-- Todos los médicos --</option>';
-            
+
             medicos.data.forEach(med => {
               const option = document.createElement('option');
               option.value = med.id_medico;
@@ -1116,7 +1164,7 @@
 
         const params = new URLSearchParams(filtros);
         const url = `${API_BASE_URL}/pacientes/medicos-disponibles?${params}`;
-        
+
         console.log('URL de búsqueda:', url);
 
         const response = await fetch(url, {
@@ -1133,7 +1181,7 @@
 
         const result = await response.json();
         console.log('Horarios recibidos:', result);
-        
+
         if (result.success) {
           mostrarHorariosDisponibles(result.data);
         } else {
@@ -1191,7 +1239,7 @@
     // Seleccionar horario
     function seleccionarHorario(element, idHorario) {
       console.log('Seleccionando horario:', idHorario);
-      
+
       // Remover selección anterior
       if (selectedHorarioElement) {
         selectedHorarioElement.classList.remove('selected');
@@ -1214,7 +1262,7 @@
     // Agendar cita
     async function agendarCita(event) {
       event.preventDefault();
-      
+
       console.log('Iniciando proceso de agendar cita...');
 
       const horarioSeleccionado = document.getElementById('horarioSeleccionado');
@@ -1281,11 +1329,11 @@
             const today = new Date().toISOString().split('T')[0];
             const futureDate = new Date();
             futureDate.setDate(futureDate.getDate() + 30);
-            
+
             document.getElementById('fechaDesdeAgendar').value = today;
             document.getElementById('fechaHastaAgendar').value = futureDate.toISOString().split('T')[0];
           }
-          
+
           if (horariosDisponibles) horariosDisponibles.style.display = 'none';
           if (horarioSeleccionado) horarioSeleccionado.value = '';
 
@@ -1313,13 +1361,14 @@
     // Cerrar sesión
     function cerrarSesion() {
       localStorage.removeItem('token');
+      alert('Tu sesión ha sido cerrada');
       window.location.href = '../Acceso.html';
     }
 
     // Event listeners
     document.addEventListener('DOMContentLoaded', function () {
       console.log('DOM loaded, iniciando aplicación...');
-      
+
       // Verificar autenticación
       if (!verificarAuth()) {
         console.log('Usuario no autenticado, redirigiendo...');
@@ -1425,9 +1474,11 @@
       cargarPerfil();
       cargarMisCitas(1);
       cargarDatosAgendar();
+      cargarPerfil();
 
       console.log('Panel de paciente inicializado correctamente');
     });
+
   </script>
 </body>
 

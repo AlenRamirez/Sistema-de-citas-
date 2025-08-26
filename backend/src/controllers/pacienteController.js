@@ -81,10 +81,10 @@ const pacienteController = {
       // Actualizar usuarios
       const updateUserQuery = `
         UPDATE usuarios 
-        SET nombre_completo = ?
+        SET nombre_completo = ?, telefono = ?
         WHERE id_usuario = ?
       `;
-      await pool.execute(updateUserQuery, [nombre_completo, requestedId]);
+      await pool.execute(updateUserQuery, [nombre_completo, telefono, requestedId]);
 
       // Actualizar o insertar pacientes
       if (fecha_nacimiento !== undefined || sexo !== undefined || eps !== undefined || contacto_emergencia !== undefined || telefono_emergencia !== undefined || alergias !== undefined) {
