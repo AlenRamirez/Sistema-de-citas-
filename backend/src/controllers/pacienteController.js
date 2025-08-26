@@ -20,7 +20,7 @@ const pacienteController = {
       const query = `
         SELECT u.id_usuario, u.correo, u.nombre_completo, u.documento, 
                u.telefono, u.activo, u.created_at,
-               p.fecha_nacimiento, p.sexo, p.eps, p.alergias
+               p.fecha_nacimiento, p.sexo, p.eps, p.contacto_emergencia, p.telefono_emergencia, p.alergias
         FROM usuarios u
         LEFT JOIN pacientes p ON u.id_usuario = p.id_paciente
         WHERE u.id_usuario = ? AND u.id_rol = 2
@@ -67,7 +67,7 @@ const pacienteController = {
         });
       }
 
-      const { nombre_completo, fecha_nacimiento, sexo, eps, alergias } = req.body;
+      const { nombre_completo, telefono, fecha_nacimiento, sexo, eps,contacto_emergencia, telefono_emergencia, alergias } = req.body;
 
       if (!nombre_completo || nombre_completo.trim().length === 0) {
         return res.status(400).json({
@@ -87,26 +87,28 @@ const pacienteController = {
       await pool.execute(updateUserQuery, [nombre_completo, requestedId]);
 
       // Actualizar o insertar pacientes
-      if (fecha_nacimiento !== undefined || sexo !== undefined || eps !== undefined || alergias !== undefined) {
+      if (fecha_nacimiento !== undefined || sexo !== undefined || eps !== undefined || contacto_emergencia !== undefined || telefono_emergencia !== undefined || alergias !== undefined) {
         const checkPatientQuery = `SELECT id_paciente FROM pacientes WHERE id_paciente = ?`;
         const [patientExists] = await pool.execute(checkPatientQuery, [requestedId]);
 
         if (patientExists.length > 0) {
           const updatePatientQuery = `
             UPDATE pacientes
-            SET fecha_nacimiento = ?, sexo = ?, eps = ?, alergias = ?
+            SET fecha_nacimiento = ?, sexo = ?, eps = ?, contacto_emergencia = ?, telefono_emergencia = ?, alergias = ?
             WHERE id_paciente = ?
           `;
           await pool.execute(updatePatientQuery, [
             toNullIfUndefined(fecha_nacimiento),
             toNullIfUndefined(sexo),
             toNullIfUndefined(eps),
+            toNullIfUndefined(contacto_emergencia),
+            toNullIfUndefined(telefono_emergencia),
             toNullIfUndefined(alergias),
             requestedId
           ]);
         } else {
           const insertPatientQuery = `
-            INSERT INTO pacientes (id_paciente, fecha_nacimiento, sexo, eps, alergias)
+            INSERT INTO pacientes (id_paciente, fecha_nacimiento, sexo, eps, contacto_emergencia, telefono_emergencia, alergias)
             VALUES (?, ?, ?, ?, ?)
           `;
           await pool.execute(insertPatientQuery, [
@@ -114,6 +116,8 @@ const pacienteController = {
             toNullIfUndefined(fecha_nacimiento),
             toNullIfUndefined(sexo),
             toNullIfUndefined(eps),
+            toNullIfUndefined(contacto_emergencia),
+            toNullIfUndefined(telefono_emergencia),
             toNullIfUndefined(alergias)
           ]);
         }
