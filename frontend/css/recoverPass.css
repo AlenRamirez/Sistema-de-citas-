@@ -1,0 +1,121 @@
+body {
+    font-family: 'Roboto Condensed', sans-serif;
+    background: linear-gradient(135deg, #eaf6ff, #ffffff);
+    margin: 0;
+    padding: 0;
+}
+
+/* Navbar */
+.navbar {
+    background-color: #004e89;
+}
+
+.navbar-brand {
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: #fff !important;
+    display: flex;
+    align-items: center;
+}
+
+/* Contenedor formulario */
+.login-form {
+    max-width: 400px;
+    margin: 80px auto;
+    padding: 25px;
+    text-align: center;
+    background-color: #ffffff;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+}
+
+.login-form h1 {
+    color: #004e89;
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+}
+
+.login-form i {
+    font-size: 50px;
+    color: #004e89;
+    margin-bottom: 15px;
+}
+
+/* Inputs */
+.form-control {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.form-control:focus {
+    border-color: #4da3ff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 78, 137, 0.25);
+}
+
+/* Botón degradado */
+.login-form button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 20px;
+    background: linear-gradient(90deg, #004e89, #0077b6);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.login-form button:hover:not(:disabled) {
+    background: linear-gradient(90deg, #0077b6, #0096c7);
+    transform: scale(1.02);
+}
+
+.login-form button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Enlace */
+.volver {
+    display: block;
+    margin-top: 15px;
+    color: #004e89;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.volver:hover {
+    color: #0077b6;
+    text-decoration: underline;
+}
+
+/* Mensajes de estado */
+.alert {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Spinner de carga */
+.spinner-border {
+    width: 1rem;
+    height: 1rem;
+}
