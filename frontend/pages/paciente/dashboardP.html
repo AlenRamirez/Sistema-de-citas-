@@ -421,18 +421,6 @@
               <h2>Agendar Cita</h2>
               <form id="citaForm">
                 <div class="mb-3">
-                  <label for="especialidadSelect" class="form-label">Especialidad (Opcional)</label>
-                  <select id="especialidadSelect" class="form-select">
-                    <option value="">-- Todas las especialidades --</option>
-                  </select>
-                </div>
-                <div class="mb-3">
-                  <label for="medicoSelect" class="form-label">Médico (Opcional)</label>
-                  <select id="medicoSelect" class="form-select">
-                    <option value="">-- Todos los médicos --</option>
-                  </select>
-                </div>
-                <div class="mb-3">
                   <label for="fechaDesdeAgendar" class="form-label">Fecha desde</label>
                   <input type="date" id="fechaDesdeAgendar" class="form-control" required>
                 </div>
@@ -452,9 +440,9 @@
                   <div id="horariosContainer"></div>
 
                   <div class="mb-3 mt-3">
-                    <label for="motivoCita" class="form-label">Motivo de la consulta (Opcional)</label>
+                    <label for="motivoCita" class="form-label">Motivo de la consulta</label>
                     <textarea id="motivoCita" class="form-control" rows="3"
-                      placeholder="Describe brevemente el motivo de tu consulta..."></textarea>
+                      placeholder="Describe brevemente el motivo de tu consulta..." required></textarea>
                   </div>
 
                   <input type="hidden" id="horarioSeleccionado">
@@ -473,7 +461,7 @@
                 <img src="https://i.pravatar.cc/150?img=12" alt="Avatar">
                 <div class="profile-info">
                   <div class="field">
-                    <span class="field-label">Nombre:</span>
+                    <span class="field-label">Nombre completo:</span>
                     <span id="nombreDisplay">-</span>
                   </div>
                   <div class="field">
@@ -499,6 +487,14 @@
                   <div class="field">
                     <span class="field-label">EPS:</span>
                     <span id="epsDisplay">-</span>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Contacto de emergencia:</span>
+                    <span id="contactoeDisplay">-</span>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Telefono de emergencia:</span>
+                    <span id="telefonoeDisplay">-</span>
                   </div>
                   <div class="field">
                     <span class="field-label">Alergias:</span>
@@ -529,6 +525,14 @@
                   </div>
                   <div class="col-md-6">
                     <label>EPS</label>
+                    <input type="text" id="epsInput">
+                  </div>
+                  <div class="col-md-6">
+                    <label>Contacto de emergencia</label>
+                    <input type="text" id="epsInput">
+                  </div>
+                  <div class="col-md-6">
+                    <label>Telefono de emergencia</label>
                     <input type="text" id="epsInput">
                   </div>
                   <div class="col-md-12">
@@ -639,7 +643,7 @@
     function verificarAuth() {
       const token = getToken();
       if (!token) {
-        window.location.href = '/login.html';
+        window.location.href = '../Accesp.html';
         return false;
       }
 
@@ -647,7 +651,7 @@
         const payload = JSON.parse(atob(token.split('.')[1]));
         if (payload.exp * 1000 < Date.now()) {
           localStorage.removeItem('token');
-          window.location.href = '/login.html';
+          window.location.href = '../Accesp.html';
           return false;
         }
 
@@ -657,7 +661,7 @@
       } catch (error) {
         console.error('Error verificando token:', error);
         localStorage.removeItem('token');
-        window.location.href = '/login.html';
+        window.location.href = '../Accesp.html';
         return false;
       }
     }
@@ -693,6 +697,8 @@
             fechaDisplay: formatDate(perfil.fecha_nacimiento),
             sexoDisplay: perfil.sexo === 'M' ? 'Masculino' : perfil.sexo === 'F' ? 'Femenino' : '-',
             epsDisplay: perfil.eps || '-',
+            contactoeDisplay: perfil.contacto_emergencia || '-',
+            telefonoeDisplay: perfil.telefono_emergencia || '-',
             alergiasDisplay: perfil.alergias || '-'
           };
 
@@ -706,9 +712,12 @@
           // Llenar formulario de edición
           const inputs = {
             nombreInput: perfil.nombre_completo || '',
+            telefonoDisplay: perfil.telefono || '-',
             fechaInput: perfil.fecha_nacimiento || '',
             sexoInput: perfil.sexo || '',
             epsInput: perfil.eps || '',
+            contactoeDisplay: perfil.contacto_emergencia || '-',
+            telefonoeDisplay: perfil.telefono_emergencia || '-',
             alergiasInput: perfil.alergias || ''
           };
 
@@ -734,9 +743,12 @@
 
         const data = {
           nombre_completo: document.getElementById('nombreInput')?.value,
+          telefono: document.getElementById('telefonoInput')?.value,
           fecha_nacimiento: document.getElementById('fechaInput')?.value || undefined,
           sexo: document.getElementById('sexoInput')?.value || undefined,
           eps: document.getElementById('epsInput')?.value || undefined,
+          contacto_emergencia: document.getElementById('contactoeInput')?.value || undefined,
+          telefono_emergencia: document.getElementById('telefonoeInput')?.value || undefined,
           alergias: document.getElementById('alergiasInput')?.value || undefined
         };
 
@@ -1295,7 +1307,7 @@
     // Cerrar sesión
     function cerrarSesion() {
       localStorage.removeItem('token');
-      window.location.href = '/login.html';
+      window.location.href = '../Accesp.html';
     }
 
     // Event listeners
