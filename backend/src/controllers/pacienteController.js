@@ -1,6 +1,4 @@
 const { pool } = require('../config/db');
-//const bcrypt = require('bcrypt');
-//const jwt = require('jsonwebtoken');
 
 const pacienteController = {
 
@@ -8,7 +6,7 @@ const pacienteController = {
     try {
       const { id } = req.params;
       const requestedId = parseInt(id);
-      const userId = req.user.id_usuario; // corregido
+      const userId = req.user.id_usuario;
       const userRole = req.user.rol;
 
       // Verificación de permisos
@@ -58,7 +56,7 @@ const pacienteController = {
     try {
       const { id } = req.params;
       const requestedId = parseInt(id);
-      const userId = req.user.id_usuario; // corregido
+      const userId = req.user.id_usuario;
       const userRole = req.user.rol;
 
       // Verificación de permisos
@@ -135,10 +133,8 @@ const pacienteController = {
     }
   },
 
-
   obtenerMisCitas: async (req, res) => {
     try {
-
       const id_paciente = req.user.id_usuario;
       const { estado, fecha_desde, fecha_hasta, page = 1, limit = 10 } = req.query;
 
@@ -153,7 +149,7 @@ const pacienteController = {
       }
 
       let whereClause = 'WHERE c.id_paciente = ?';
-      let queryParams = [id_paciente]; 
+      let queryParams = [id_paciente];
 
       if (estado) {
         whereClause += ' AND ec.nombre = ?';
@@ -176,24 +172,24 @@ const pacienteController = {
       console.log('Debug - queryParams:', queryParams);
 
       const query = `
-      SELECT c.id_cita, c.motivo, c.fecha_creacion,
-             h.fecha, h.hora_inicio, h.hora_fin,
-             u.nombre_completo as medico_nombre,
-             m.registro_profesional, m.consultorio,
-             ec.nombre as estado,
-             GROUP_CONCAT(e.nombre) as especialidades
-      FROM citas c
-      INNER JOIN horarios h ON c.id_horario = h.id_horario
-      INNER JOIN medicos m ON h.id_medico = m.id_medico
-      INNER JOIN usuarios u ON m.id_medico = u.id_usuario
-      INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
-      LEFT JOIN medico_especialidad me ON m.id_medico = me.id_medico
-      LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
-      ${whereClause}
-      GROUP BY c.id_cita
-      ORDER BY h.fecha DESC, h.hora_inicio DESC
-      LIMIT ? OFFSET ?
-    `;
+        SELECT c.id_cita, c.motivo, c.fecha_creacion,
+               h.fecha, h.hora_inicio, h.hora_fin,
+               u.nombre_completo as medico_nombre,
+               m.registro_profesional, m.consultorio,
+               ec.nombre as estado,
+               GROUP_CONCAT(e.nombre) as especialidades
+        FROM citas c
+        INNER JOIN horarios h ON c.id_horario = h.id_horario
+        INNER JOIN medicos m ON h.id_medico = m.id_medico
+        INNER JOIN usuarios u ON m.id_medico = u.id_usuario
+        INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
+        LEFT JOIN medico_especialidad me ON m.id_medico = me.id_medico
+        LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
+        ${whereClause}
+        GROUP BY c.id_cita
+        ORDER BY h.fecha DESC, h.hora_inicio DESC
+        LIMIT ? OFFSET ?
+      `;
 
       const mainQueryParams = [...queryParams, parseInt(limit), offset];
 
@@ -202,12 +198,12 @@ const pacienteController = {
       const [rows] = await pool.execute(query, mainQueryParams);
 
       const countQuery = `
-      SELECT COUNT(DISTINCT c.id_cita) as total
-      FROM citas c
-      INNER JOIN horarios h ON c.id_horario = h.id_horario
-      INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
-      ${whereClause}
-    `;
+        SELECT COUNT(DISTINCT c.id_cita) as total
+        FROM citas c
+        INNER JOIN horarios h ON c.id_horario = h.id_horario
+        INNER JOIN estados_cita ec ON c.id_estado = ec.id_estado
+        ${whereClause}
+      `;
 
       console.log('Debug - countQuery params:', queryParams);
 
@@ -238,86 +234,120 @@ const pacienteController = {
 
   agendarCita: async (req, res) => {
     const connection = await pool.getConnection();
-    
+
     try {
+      console.log('Iniciando proceso de agendar cita...');
+      console.log('Body recibido:', req.body);
+      console.log('Usuario:', req.user);
+
       await connection.beginTransaction();
-      
+
       const id_paciente = req.user.id_usuario;
       const { id_horario, motivo } = req.body;
-      
+
+      console.log('ID Paciente:', id_paciente);
+      console.log('ID Horario:', id_horario);
+      console.log('Motivo:', motivo);
+
+      // Validaciones básicas
       if (!id_horario) {
         await connection.rollback();
-        return res.status(400).json({ 
-          success: false, 
-          message: 'El horario es requerido' 
+        return res.status(400).json({
+          success: false,
+          message: 'El horario es requerido'
         });
       }
-      
-    
+
+      const horarioId = parseInt(id_horario);
+      if (isNaN(horarioId)) {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'ID de horario inválido'
+        });
+      }
+
+      // Verificar que el horario existe y está disponible
+      console.log('Verificando disponibilidad del horario...');
       const [horarioRows] = await connection.execute(
         'SELECT * FROM horarios WHERE id_horario = ? AND disponible = true AND fecha >= CURDATE()',
-        [id_horario]
+        [horarioId]
       );
-      
+
+      console.log('Horarios encontrados:', horarioRows.length);
+
       if (horarioRows.length === 0) {
         await connection.rollback();
-        return res.status(400).json({ 
-          success: false, 
-          message: 'El horario seleccionado no está disponible' 
+        return res.status(400).json({
+          success: false,
+          message: 'El horario seleccionado no está disponible'
         });
       }
-      
+
+      // Verificar conflictos de horario para el mismo paciente
+      console.log('Verificando conflictos de horario...');
       const [citasConflicto] = await connection.execute(`
         SELECT c.id_cita FROM citas c 
         INNER JOIN horarios h ON c.id_horario = h.id_horario 
         WHERE c.id_paciente = ? AND h.fecha = ? AND h.hora_inicio = ? 
         AND c.id_estado IN (1, 2)
       `, [id_paciente, horarioRows[0].fecha, horarioRows[0].hora_inicio]);
-      
+
+      console.log('Conflictos encontrados:', citasConflicto.length);
+
       if (citasConflicto.length > 0) {
         await connection.rollback();
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Ya tienes una cita agendada a esta hora' 
+        return res.status(400).json({
+          success: false,
+          message: 'Ya tienes una cita agendada a esta hora'
         });
       }
-      
-      
+
+      // Insertar la nueva cita
+      console.log('Insertando nueva cita...');
       const [citaResult] = await connection.execute(`
         INSERT INTO citas (id_paciente, id_horario, id_estado, motivo, fecha_creacion) 
         VALUES (?, ?, 1, ?, NOW())
-      `, [id_paciente, id_horario, motivo || null]);
-      
- 
+      `, [id_paciente, horarioId, motivo || null]);
+
+      console.log('Cita insertada con ID:', citaResult.insertId);
+
+      // Marcar horario como no disponible
+      console.log('Marcando horario como no disponible...');
       await connection.execute(
         'UPDATE horarios SET disponible = false WHERE id_horario = ?',
-        [id_horario]
+        [horarioId]
       );
-    
+
+      // Insertar en auditoría
+      console.log('Insertando auditoría...');
       await connection.execute(`
         INSERT INTO auditoria_citas (id_cita, evento, actor_id_usuario, fecha_evento)
         VALUES (?, 'creada', ?, NOW())
       `, [citaResult.insertId, id_paciente]);
-      
+
       await connection.commit();
-      
-      res.status(201).json({ 
-        success: true, 
+      console.log('Transacción completada exitosamente');
+
+      res.status(201).json({
+        success: true,
         message: 'Cita agendada exitosamente',
         data: { id_cita: citaResult.insertId }
       });
-      
+
     } catch (error) {
       await connection.rollback();
-      console.error('Error al agendar cita:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error interno del servidor' 
+      console.error('Error detallado al agendar cita:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        debug: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     } finally {
       connection.release();
     }
   },
+
   cancelarCita: async (req, res) => {
     const connection = await pool.getConnection();
 
@@ -328,14 +358,13 @@ const pacienteController = {
       const id_paciente = req.user.id_usuario;
       const { motivo_cancelacion } = req.body;
 
-
       let citaQuery = `
-      SELECT c.*, h.fecha, h.hora_inicio,
-             TIMESTAMPDIFF(HOUR, NOW(), CONCAT(h.fecha, ' ', h.hora_inicio)) as horas_restantes
-      FROM citas c
-      INNER JOIN horarios h ON c.id_horario = h.id_horario
-      WHERE c.id_cita = ?
-    `;
+        SELECT c.*, h.fecha, h.hora_inicio,
+               TIMESTAMPDIFF(HOUR, NOW(), CONCAT(h.fecha, ' ', h.hora_inicio)) as horas_restantes
+        FROM citas c
+        INNER JOIN horarios h ON c.id_horario = h.id_horario
+        WHERE c.id_cita = ?
+      `;
       const params = [id];
 
       if (req.user.rol === 'paciente') {
@@ -356,14 +385,18 @@ const pacienteController = {
       const cita = citaRows[0];
 
       if (cita.horas_restantes < 24) {
-        return res.status(400).json({ message: 'No se puede cancelar la cita. Debe hacerlo con al menos 24 horas de anticipación' });
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'No se puede cancelar la cita. Debe hacerlo con al menos 24 horas de anticipación'
+        });
       }
 
       await connection.execute(`
-      UPDATE citas
-      SET id_estado = 4, cancelada_por = ?, fecha_cancelacion = NOW(), fecha_actualizacion = NOW()
-      WHERE id_cita = ?
-    `, ['paciente', id]);
+        UPDATE citas
+        SET id_estado = 4, cancelada_por = ?, fecha_cancelacion = NOW(), fecha_actualizacion = NOW()
+        WHERE id_cita = ?
+      `, ['paciente', id]);
 
       await connection.execute(
         'UPDATE horarios SET disponible = true WHERE id_horario = ?',
@@ -371,9 +404,9 @@ const pacienteController = {
       );
 
       await connection.execute(`
-      INSERT INTO auditoria_citas (id_cita, evento, detalle, actor_id_usuario, fecha_evento)
-      VALUES (?, 'cancelada', ?, ?, NOW())
-    `, [id, motivo_cancelacion || 'Cancelada por paciente', id_paciente]);
+        INSERT INTO auditoria_citas (id_cita, evento, detalle, actor_id_usuario, fecha_evento)
+        VALUES (?, 'cancelada', ?, ?, NOW())
+      `, [id, motivo_cancelacion || 'Cancelada por paciente', id_paciente]);
 
       await connection.commit();
 
@@ -397,30 +430,30 @@ const pacienteController = {
   buscarMedicosDisponibles: async (req, res) => {
     try {
       const { especialidad, medico, fecha_desde, fecha_hasta } = req.query;
-      
+
       let whereClause = 'WHERE h.disponible = true AND h.fecha >= CURDATE()';
       let queryParams = [];
-      
+
       if (especialidad) {
         whereClause += ' AND e.id_especialidad = ?';
         queryParams.push(especialidad);
       }
-      
+
       if (medico) {
         whereClause += ' AND m.id_medico = ?';
         queryParams.push(medico);
       }
-      
+
       if (fecha_desde) {
         whereClause += ' AND h.fecha >= ?';
         queryParams.push(fecha_desde);
       }
-      
+
       if (fecha_hasta) {
         whereClause += ' AND h.fecha <= ?';
         queryParams.push(fecha_hasta);
       }
-      
+
       const query = `
         SELECT DISTINCT h.id_horario, h.fecha, h.hora_inicio, h.hora_fin,
                u.nombre_completo as medico_nombre, m.registro_profesional, 
@@ -436,19 +469,19 @@ const pacienteController = {
         GROUP BY h.id_horario
         ORDER BY h.fecha ASC, h.hora_inicio ASC
       `;
-      
+
       const [rows] = await pool.execute(query, queryParams);
-      
-      res.json({ 
-        success: true, 
-        data: rows 
+
+      res.json({
+        success: true,
+        data: rows
       });
-      
+
     } catch (error) {
       console.error('Error al buscar médicos:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Error interno del servidor' 
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
       });
     }
   }
