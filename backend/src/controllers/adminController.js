@@ -177,10 +177,12 @@ const adminController = {
         }
     },
 
-    // Crear médico - CORREGIDO
+    // Crear médico - CORREGIDO CON MANEJO DE ERRORES MEJORADO
     createMedico: async (req, res) => {
-        const connection = await pool.getConnection();
+        let connection;
         try {
+            console.log('Datos recibidos para crear médico:', req.body);
+
             const {
                 nombre_completo,
                 correo,
@@ -202,57 +204,76 @@ const adminController = {
                 });
             }
 
-            if (!especialidades || especialidades.length === 0) {
+            if (!especialidades || !Array.isArray(especialidades) || especialidades.length === 0) {
                 return res.status(400).json({
                     success: false,
-                    message: "Debe seleccionar al menos una especialidad"
+                    message: "Debe seleccionar al menos una especialidad válida"
                 });
             }
 
-            // Validar si ya existe un médico con este registro
-            const medicoExistente = await connection.query(
+            // Obtener conexión
+            connection = await pool.getConnection();
+
+            // Verificar si ya existe un médico con este registro
+            const medicoExistente = await connection.execute(
                 "SELECT id_medico FROM medicos WHERE registro_profesional = ?",
                 [registro_profesional]
             );
 
-            if (medicoExistente.length > 0) {
+            if (medicoExistente[0].length > 0) {
                 return res.status(400).json({
                     success: false,
                     message: "Ya existe un médico con este registro profesional"
                 });
             }
 
+            // Verificar que todas las especialidades existan
+            const especialidadesExistentes = await connection.execute(
+                `SELECT id_especialidad FROM especialidades WHERE id_especialidad IN (${especialidades.map(() => '?').join(',')})`,
+                especialidades
+            );
+
+            if (especialidadesExistentes[0].length !== especialidades.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Una o más especialidades no existen"
+                });
+            }
+
             await connection.beginTransaction();
 
             // Insertar en la tabla medicos
-            const result = await connection.query(
+            const [result] = await connection.execute(
                 `INSERT INTO medicos 
                 (nombre_completo, correo, registro_profesional, consultorio, telefono, estado, biografia, experiencia_anos, foto_url) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    nombre_completo,
-                    correo || null,
-                    registro_profesional,
-                    consultorio || null,
-                    telefono || null,
+                    nombre_completo.trim(),
+                    correo ? correo.trim() : null,
+                    registro_profesional.trim(),
+                    consultorio ? consultorio.trim() : null,
+                    telefono ? telefono.trim() : null,
                     estado,
-                    biografia || null,
-                    experiencia_anos || null,
-                    foto_url || null
+                    biografia ? biografia.trim() : null,
+                    experiencia_anos ? parseInt(experiencia_anos) : null,
+                    foto_url ? foto_url.trim() : null
                 ]
             );
 
             const medicoId = result.insertId;
+            console.log('Médico creado con ID:', medicoId);
 
             // Insertar especialidades del médico
             for (const idEspecialidad of especialidades) {
-                await connection.query(
+                await connection.execute(
                     "INSERT INTO medico_especialidad (id_medico, id_especialidad) VALUES (?, ?)",
-                    [medicoId, idEspecialidad]
+                    [medicoId, parseInt(idEspecialidad)]
                 );
             }
 
             await connection.commit();
+            console.log('Transacción completada exitosamente');
+
             res.status(201).json({
                 success: true,
                 message: "Médico creado exitosamente",
@@ -260,15 +281,25 @@ const adminController = {
             });
 
         } catch (error) {
-            await connection.rollback();
-            console.error("Error al crear médico:", error);
+            if (connection) {
+                await connection.rollback();
+            }
+            console.error("Error detallado al crear médico:", {
+                message: error.message,
+                code: error.code,
+                sqlState: error.sqlState,
+                stack: error.stack
+            });
+
             res.status(500).json({
                 success: false,
-                message: "Error interno del servidor",
-                error: error.message
+                message: "Error interno del servidor al crear médico",
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
             });
         } finally {
-            connection.release();
+            if (connection) {
+                connection.release();
+            }
         }
     },
 
@@ -361,12 +392,14 @@ const adminController = {
 
     // Cancelar cita (admin)
     cancelCita: async (req, res) => {
-        const connection = await pool.getConnection();
+        let connection;
         try {
             const { id } = req.params;
             const { motivo } = req.body;
 
-            const cita = await connection.query(`
+            connection = await pool.getConnection();
+
+            const [cita] = await connection.execute(`
                 SELECT c.id_cita, c.id_estado, h.id_horario
                 FROM citas c
                 INNER JOIN horarios h ON c.id_horario = h.id_horario
@@ -384,7 +417,7 @@ const adminController = {
             await connection.beginTransaction();
 
             // Actualizar cita
-            await connection.query(`
+            await connection.execute(`
                 UPDATE citas 
                 SET id_estado = 4, cancelada_por = 'admin',
                     motivo_cancelacion = ?, 
@@ -393,7 +426,7 @@ const adminController = {
             `, [motivo || 'Cancelada por administrador', id]);
 
             // Liberar horario
-            await connection.query(`
+            await connection.execute(`
                 UPDATE horarios SET disponible = true WHERE id_horario = ?
             `, [cita[0].id_horario]);
 
@@ -402,7 +435,9 @@ const adminController = {
             res.json({ success: true, message: 'Cita cancelada correctamente' });
 
         } catch (error) {
-            await connection.rollback();
+            if (connection) {
+                await connection.rollback();
+            }
             console.error('Error al cancelar cita:', error);
             res.status(500).json({
                 success: false,
@@ -410,7 +445,9 @@ const adminController = {
                 error: error.message
             });
         } finally {
-            connection.release();
+            if (connection) {
+                connection.release();
+            }
         }
     },
 
@@ -499,29 +536,72 @@ const adminController = {
         }
     },
 
-    // Gestión de especialidades
+
     getEspecialidades: async (req, res) => {
+        console.log('🔍 GET /admin/especialidades - Iniciando...');
+        console.log('Usuario autenticado:', req.user);
+        console.log('Headers recibidos:', req.headers);
+
         try {
+            console.log('📊 Ejecutando consulta a base de datos...');
+
+            // Primera prueba: consulta más simple
+            const result = await pool.query('SELECT COUNT(*) as total FROM especialidades');
+            console.log('Total especialidades en BD:', result[0]);
+
+            // Segunda consulta: obtener datos
             const especialidades = await pool.query(`
-                SELECT id_especialidad, nombre, descripcion
-                FROM especialidades 
-                ORDER BY nombre
-            `);
+            SELECT id_especialidad, nombre, descripcion
+            FROM especialidades 
+            ORDER BY nombre
+        `);
+
+            console.log('Especialidades obtenidas:', especialidades.length);
+            console.log('Primeros 3 registros:', especialidades.slice(0, 3));
 
             res.json({
                 success: true,
-                data: especialidades
+                message: 'Especialidades obtenidas correctamente',
+                data: especialidades,
+                debug: {
+                    total: especialidades.length,
+                    query_executed: true,
+                    timestamp: new Date().toISOString()
+                }
             });
+
         } catch (error) {
-            console.error('Error al obtener especialidades:', error);
+            console.error('❌ Error detallado en getEspecialidades:', {
+                message: error.message,
+                code: error.code,
+                errno: error.errno,
+                sqlState: error.sqlState,
+                sqlMessage: error.sqlMessage,
+                stack: error.stack
+            });
+
             res.status(500).json({
                 success: false,
-                message: 'Error al obtener especialidades'
+                message: 'Error al obtener especialidades',
+                error: {
+                    message: error.message,
+                    code: error.code,
+                    sqlState: error.sqlState
+                },
+                debug: {
+                    timestamp: new Date().toISOString(),
+                    query_failed: true
+                }
             });
         }
     },
 
+    
+
     createEspecialidad: async (req, res) => {
+        console.log('🔍 POST /admin/especialidades - Iniciando...');
+        console.log('Body recibido:', req.body);
+
         try {
             const { nombre, descripcion } = req.body;
 
@@ -532,38 +612,70 @@ const adminController = {
                 });
             }
 
-            // Verificar que no exista
-            const existing = await pool.query(
-                'SELECT id_especialidad FROM especialidades WHERE nombre = ?',
-                [nombre.trim()]
+            const nombreLimpio = nombre.trim();
+            console.log('✅ Nombre a buscar:', `"${nombreLimpio}"`);
+            console.log('Longitud del nombre:', nombreLimpio.length);
+
+            // Consultar todos
+            const [todos] = await pool.query(
+                'SELECT id_especialidad, nombre, LENGTH(nombre) as longitud FROM especialidades'
+            );
+            console.log('Todos los registros en especialidades:');
+            todos.forEach((esp, index) => {
+                console.log(`  ${index + 1}. ID: ${esp.id_especialidad}, Nombre: "${esp.nombre}", Longitud: ${esp.longitud}`);
+            });
+
+            // Verificar existencia exacta
+            const [existing] = await pool.query(
+                'SELECT id_especialidad, nombre FROM especialidades WHERE nombre = ?',
+                [nombreLimpio]
             );
 
-            if (existing.length > 0) {
+            // Verificar con TRIM
+            const [existingTrim] = await pool.query(
+                'SELECT id_especialidad, nombre FROM especialidades WHERE TRIM(nombre) = ?',
+                [nombreLimpio]
+            );
+
+            // Verificar case insensitive
+            const [existingLower] = await pool.query(
+                'SELECT id_especialidad, nombre FROM especialidades WHERE LOWER(TRIM(nombre)) = LOWER(?)',
+                [nombreLimpio]
+            );
+
+            if (existing.length > 0 || existingTrim.length > 0 || existingLower.length > 0) {
                 return res.status(400).json({
                     success: false,
-                    message: 'La especialidad ya existe'
+                    message: 'La especialidad ya existe',
+
                 });
             }
 
-            const result = await pool.query(
+            // Insertar nueva especialidad
+            const [result] = await pool.query(
                 'INSERT INTO especialidades (nombre, descripcion) VALUES (?, ?)',
-                [nombre.trim(), descripcion?.trim() || null]
+                [nombreLimpio, descripcion?.trim() || null]
             );
 
             res.status(201).json({
                 success: true,
                 message: 'Especialidad creada correctamente',
-                data: { id_especialidad: result.insertId }
+                data: {
+                    id_especialidad: result.insertId,
+                    nombre: nombreLimpio,
+                    descripcion: descripcion?.trim() || null
+                }
             });
 
         } catch (error) {
-            console.error('Error al crear especialidad:', error);
+            console.error('❌ Error detallado en createEspecialidad:', error);
+
             res.status(500).json({
                 success: false,
-                message: 'Error al crear especialidad'
+                message: 'Error al crear especialidad',
+                error: error.message
             });
         }
     }
 };
-
 module.exports = adminController;

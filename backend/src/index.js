@@ -37,12 +37,11 @@ const swaggerOptions = {
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
-// ⭐ RUTAS SIN PREFIJOS ADICIONALES
-app.use('/', authRoutes);              // Crea: /register, /login, etc.
-app.use('/pacientes', pacienteRoutes); // Crea: /pacientes/*
-app.use('/admin', adminRoutes);        // Crea: /admin/*
 
-// ✅ RUTA CORREGIDA para reset password - SOLO UNA RUTA
+app.use('/', authRoutes);              
+app.use('/pacientes', pacienteRoutes); 
+app.use('/admin', adminRoutes);        
+
 app.get('/auth/reset-password/:token', (req, res) => {
   // Primero intenta la ruta más específica (con carpeta frontend)
   const tokenParam = req.params.token;
@@ -52,12 +51,11 @@ app.get('/auth/reset-password/:token', (req, res) => {
   res.redirect(redirectUrl);
 });
 
-// ✅ RUTA ALTERNATIVA si no tienes carpeta frontend
 app.get('/reset-password/:token', (req, res) => {
   const tokenParam = req.params.token;
   const redirectUrl = `http://127.0.0.1:5501/resetPass.html?token=${tokenParam}`;
 
-  console.log(`🔄 Redirigiendo (alternativa) a: ${redirectUrl}`);
+  console.log(`Redirigiendo (alternativa) a: ${redirectUrl}`);
   res.redirect(redirectUrl);
 });
 
@@ -65,6 +63,6 @@ app.get('/', (req, res) => res.send('API funcionando'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor ejecutándose en http://localhost:${PORT}`);
-  console.log(`📚 Documentación en http://localhost:${PORT}/api-docs`);
+  console.log(` Servidor ejecutándose en http://localhost:${PORT}`);
+  console.log(`Documentación en http://localhost:${PORT}/api-docs`);
 });
