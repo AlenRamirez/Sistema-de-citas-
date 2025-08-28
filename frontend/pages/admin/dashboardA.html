@@ -1036,148 +1036,173 @@
         }
 
         function renderizarCitas(citas) {
-            const tbody = document.getElementById('tablaCitas');
-            tbody.innerHTML = '';
+                const tabla = document.getElementById("tablaCitas");
+                tabla.innerHTML = "";
 
-            if (!citas || citas.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center">No se encontraron citas</td></tr>';
-                return;
-            }
+                citas.forEach((cita) => {
+                    const fila = document.createElement("tr");
 
-            citas.forEach(cita => {
-                const tr = document.createElement('tr');
-                const fecha = cita.fecha ? new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-ES') : 'N/A';
+                    fila.innerHTML = `
+      <td>${cita.paciente}</td>
+      <td>${cita.medico}</td>
+      <td>${cita.fecha}</td>
+      <td>${cita.hora}</td>
+      <td>${cita.especialidad}</td>
+      <td>${cita.motivo}</td>
+      <td>
+        <span class="badge bg-${cita.estado === "pendiente" || cita.estado === "Pendiente"
+                            ? "warning"
+                            : cita.estado === "confirmada" || cita.estado === "Confirmada"
+                                ? "success"
+                                : cita.estado === "realizada" || cita.estado === "Realizada"
+                                    ? "info"
+                                    : cita.estado === "cancelada" || cita.estado === "Cancelada"
+                                        ? "danger"
+                                        : cita.estado === "no_asistio" || cita.estado === "No asistió"
+                                            ? "dark"
+                                            : "secondary"
+                        }">
+          ${cita.estado}
+        </span>
+      </td>
+      <td>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-primary dropdown-toggle" 
+                  type="button" data-bs-toggle="dropdown">
+            Acciones
+          </button>
+          <ul class="dropdown-menu">
+            ${(cita.estado === "pendiente" || cita.estado === "Pendiente")
+                            ? `
+                  <li><a class="dropdown-item" href="#" onclick="cambiarEstadoCita(${cita.id_cita}, 'confirmada')">Confirmar</a></li>
+                  <li><a class="dropdown-item text-danger" href="#" onclick="cancelarCita(${cita.id_cita})">Cancelar</a></li>
+                `
+                            : (cita.estado === "confirmada" || cita.estado === "Confirmada")
+                                ? `
+                  <li><a class="dropdown-item text-success" href="#" onclick="cambiarEstadoCita(${cita.id_cita}, 'realizada')">Marcar como Realizada</a></li>
+                  <li><a class="dropdown-item text-warning" href="#" onclick="cambiarEstadoCita(${cita.id_cita}, 'no_asistio')">Marcar como No Asistió</a></li>
+                  <li><a class="dropdown-item text-danger" href="#" onclick="cancelarCita(${cita.id_cita})">Cancelar</a></li>
+                  <li><a class="dropdown-item text-secondary" href="#" onclick="reprogramarCita(${cita.id_cita})">Reprogramar</a></li>
+                `
+                                : (cita.estado === "realizada" || cita.estado === "Realizada")
+                                    ? `
+                  <li><a class="dropdown-item disabled" href="#">Cita Completada</a></li>
+                `
+                                    : (cita.estado === "cancelada" || cita.estado === "Cancelada")
+                                        ? `
+                  <li><a class="dropdown-item text-secondary" href="#" onclick="reprogramarCita(${cita.id_cita})">Reprogramar</a></li>
+                `
+                                        : (cita.estado === "no_asistio" || cita.estado === "No asistió")
+                                            ? `
+                  <li><a class="dropdown-item text-secondary" href="#" onclick="reprogramarCita(${cita.id_cita})">Reprogramar</a></li>
+                `
+                                            : `
+                  <li><a class="dropdown-item disabled" href="#">Sin acciones</a></li>
+                `
+                        }
+          </ul>
+        </div>
+      </td>
+    `;
 
-                const estadoColores = {
-                    'Pendiente': '#FFC107',
-                    'Confirmada': '#17A2B8',
-                    'Realizada': '#28A745',
-                    'Cancelada': '#DC3545',
-                    'No asistió': '#FD7E14'
-                };
-
-                let badgeColor = cita.color_estado || estadoColores[cita.estado] || '#6C757D';
-                let estadoTexto = cita.estado || 'Pendiente';
-
-                tr.innerHTML = `
-                    <td>${cita.paciente || 'N/A'}</td>
-                    <td>${cita.medico || 'N/A'}</td>
-                    <td>${fecha}</td>
-                    <td>${cita.hora_inicio || 'N/A'} - ${cita.hora_fin || 'N/A'}</td>
-                    <td>${cita.especialidades || 'N/A'}</td>
-                    <td>${cita.motivo || 'Sin motivo'}</td>
-                    <td>
-                        <span class="badge" style="background-color: ${badgeColor}; color: white;">
-                            ${estadoTexto}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="btn-group btn-group-sm">
-                            ${(cita.permite_cancelacion && estadoTexto !== 'Cancelada' && estadoTexto !== 'Realizada') ?
-                        `<button class="btn btn-danger btn-sm" onclick="mostrarModalCancelacion(${cita.id_cita})" title="Cancelar cita">
-                                    <i class="fas fa-times"></i>
-                                </button>` : ''
-                    }
-                            ${(estadoTexto === 'Pendiente' || estadoTexto === 'Confirmada') ?
-                        `<button class="btn btn-info btn-sm" onclick="mostrarModalCambiarEstado(${cita.id_cita})" title="Cambiar estado">
-                                    <i class="fas fa-edit"></i>
-                                </button>` : ''
-                    }
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function mostrarModalCancelacion(idCita) {
-            citaACancelar = idCita;
-            document.getElementById('motivoCancelacion').value = '';
-            const modal = new bootstrap.Modal(document.getElementById('modalCancelarCita'));
-            modal.show();
-        }
-
-        function mostrarModalCambiarEstado(idCita) {
-            citaCambiarEstado = idCita;
-            document.getElementById('nuevoEstadoCita').value = 'realizada';
-            document.getElementById('notasEstado').value = '';
-            const modal = new bootstrap.Modal(document.getElementById('modalCambiarEstado'));
-            modal.show();
-        }
-
-        async function confirmarCancelacion() {
-            const motivo = document.getElementById('motivoCancelacion').value.trim();
-
-            if (!motivo) {
-                mostrarAlerta('El motivo de cancelación es requerido', 'warning');
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/admin/citas/${citaACancelar}/cancel`, {
-                    method: 'PUT',
-                    headers: getHeaders(),
-                    body: JSON.stringify({
-                        motivo,
-                        cancelada_por: 'admin'
-                    })
+                    tabla.appendChild(fila);
                 });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-
-                if (data.success) {
-                    mostrarAlerta(data.message, 'success');
-                    cargarCitas();
-
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalCancelarCita'));
-                    modal.hide();
-                } else {
-                    throw new Error(data.message || 'Error al cancelar cita');
-                }
-            } catch (error) {
-                console.error('Error al cancelar cita:', error);
-                mostrarAlerta('Error al cancelar cita: ' + error.message, 'danger');
             }
-        }
 
-        async function confirmarCambioEstado() {
-            const estado = document.getElementById('nuevoEstadoCita').value;
-            const notas = document.getElementById('notasEstado').value.trim();
+            // Función auxiliar para cambiar estado de cita
+            function cambiarEstadoCita(idCita, nuevoEstado) {
+                // Mostrar modal de confirmación con notas si es necesario
+                citaCambiarEstado = idCita;
+                document.getElementById('nuevoEstadoCita').value = nuevoEstado;
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/admin/citas/${citaCambiarEstado}/status`, {
-                    method: 'PUT',
-                    headers: getHeaders(),
-                    body: JSON.stringify({
-                        estado,
-                        notas
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
+                // Personalizar el modal según el estado
+                const modalTitle = document.querySelector('#modalCambiarEstado .modal-title');
+                if (nuevoEstado === 'confirmada') {
+                    modalTitle.textContent = 'Confirmar Cita';
+                } else if (nuevoEstado === 'realizada') {
+                    modalTitle.textContent = 'Marcar como Realizada';
+                } else if (nuevoEstado === 'no_asistio') {
+                    modalTitle.textContent = 'Marcar como No Asistió';
                 }
 
-                const data = await response.json();
-
-                if (data.success) {
-                    mostrarAlerta(data.message, 'success');
-                    cargarCitas();
-
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalCambiarEstado'));
-                    modal.hide();
-                } else {
-                    throw new Error(data.message || 'Error al actualizar estado');
-                }
-            } catch (error) {
-                console.error('Error al actualizar estado:', error);
-                mostrarAlerta('Error al actualizar estado: ' + error.message, 'danger');
+                const modal = new bootstrap.Modal(document.getElementById('modalCambiarEstado'));
+                modal.show();
             }
-        }
+
+            // Función auxiliar para cancelar cita
+            function cancelarCita(idCita) {
+                if (confirm('¿Está seguro de que desea cancelar esta cita?')) {
+                    citaCambiarEstado = idCita;
+                    document.getElementById('nuevoEstadoCita').value = 'cancelada';
+                    document.querySelector('#modalCambiarEstado .modal-title').textContent = 'Cancelar Cita';
+
+                    const modal = new bootstrap.Modal(document.getElementById('modalCambiarEstado'));
+                    modal.show();
+                }
+            }
+
+            // Función auxiliar para reprogramar cita (placeholder)
+            function reprogramarCita(idCita) {
+                // Aquí puedes implementar la lógica de reprogramación
+                alert('Funcionalidad de reprogramación en desarrollo. ID: ' + idCita);
+            }
+
+            // Función actualizada para confirmar cambio de estado
+          async function confirmarCambioEstado() {
+                const estado = document.getElementById('nuevoEstadoCita').value;
+                const notas = document.getElementById('notasEstado').value.trim();
+
+                try {
+                    let endpoint = '';
+                    let method = 'PUT';
+                    let body = {};
+
+                    // Determinar el endpoint según el estado
+                    if (estado === 'cancelada') {
+                        endpoint = `${API_BASE_URL}/admin/citas/${citaCambiarEstado}/cancel`;
+                        body = {
+                            motivo: notas || 'Cancelada desde panel administrativo',
+                            cancelada_por: 'admin'
+                        };
+                    } else {
+                        endpoint = `${API_BASE_URL}/admin/citas/${citaCambiarEstado}/status`;
+                        body = {
+                            estado: estado.toLowerCase(),  // 👈 siempre en minúsculas
+                            notas: notas
+                        };
+                    }
+
+                    // 👇 fetch siempre aquí, no dentro del if/else
+                    const response = await fetch(endpoint, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...getHeaders()
+                        },
+                        body: JSON.stringify(body)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        mostrarAlerta(data.message, 'success');
+                        cargarCitas();
+
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('modalCambiarEstado'));
+                        modal.hide();
+                    } else {
+                        throw new Error(data.message || 'Error al actualizar estado');
+                    }
+                } catch (error) {
+                    console.error('Error al actualizar estado:', error);
+                    mostrarAlerta('Error al actualizar estado: ' + error.message, 'danger');
+                }
+            }
+
 
         // Reportes
         async function generarReporte() {

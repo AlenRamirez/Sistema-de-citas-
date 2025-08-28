@@ -17,28 +17,24 @@ const isAdmin = (req, res, next) => {
 router.use(authMiddleware);
 router.use(isAdmin);
 
- 
+// Rutas existentes del admin
 router.get('/dashboard', adminController.getDashboard);
-
-
 router.get('/usuarios', adminController.getAllUsers);
-
-
 router.put('/usuarios/:id/estado', adminController.toggleUserStatus);
-
 router.delete('/usuarios/:id', adminController.deleteUser);
-
 router.post('/medicos', adminController.createMedico);
 
-
-
+// Rutas de citas - usando adminController
 router.get('/citas', adminController.getAllCitas);
+router.get('/citas/estados', adminController.getEstadosCita);
 
-router.put('/citas/:id/cancelar', adminController.cancelCita);
+// Rutas para cambiar estados
+router.put('/citas/:id/status', adminController.updateCitaStatus);     // Para confirmar, realizar, no_asistio
+router.put('/citas/:id/cancel', adminController.cancelCita);           // Para cancelar (endpoint específico)
 
+// Rutas de especialidades
 router.get('/especialidades', adminController.getEspecialidades);
 router.post('/especialidades', adminController.createEspecialidad);
-
 
 /**
  * @route GET /api/admin/reportes
