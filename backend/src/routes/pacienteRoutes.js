@@ -96,71 +96,12 @@ router.put('/perfil/:id', verificarPaciente, pacienteController.actualizarPerfil
  *       200:
  *         description: Lista de citas obtenida correctamente
  */
-router.get('/citas', verificarPaciente, pacienteController.obtenerMisCitas);
+router.get('/mis-citas', pacienteController.obtenerMisCitas);
 
-/**
- * @swagger
- * /pacientes/citas:
- *   post:
- *     summary: Agendar una nueva cita
- *     tags: [Pacientes]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               medicoId:
- *                 type: integer
- *               fecha:
- *                 type: string
- *                 format: date-time
- *     responses:
- *       201:
- *         description: Cita agendada exitosamente
- *       400:
- *         description: Datos inválidos
- */
 router.post('/citas', verificarPaciente, pacienteController.agendarCita);
-
-/**
- * @swagger
- * /pacientes/citas/{id}:
- *   delete:
- *     summary: Cancelar una cita
- *     tags: [Pacientes]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - name: id
- *         in: path
- *         description: ID de la cita
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Cita cancelada exitosamente
- *       404:
- *         description: Cita no encontrada
- */
+router.get('/citas/:id', authMiddleware, pacienteController.obtenerCita);
 router.delete('/citas/:id', verificarPaciente, pacienteController.cancelarCita);
-
-/**
- * @swagger
- * /pacientes/medicos-disponibles:
- *   get:
- *     summary: Buscar médicos disponibles
- *     tags: [Pacientes]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Lista de médicos disponibles
- */
-router.get('/medicos-disponibles', verificarPaciente, pacienteController.buscarMedicosDisponibles);
-
+router.get('/horarios-disponibles', pacienteController.obtenerHorariosDisponibles);
+router.get('/medicos-disponibles', pacienteController.obtenerMedicosDisponibles);
+router.get('/especialidades', pacienteController.obtenerEspecialidades);
 module.exports = router;

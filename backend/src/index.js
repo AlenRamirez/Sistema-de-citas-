@@ -9,6 +9,7 @@ const authRoutes = require('./routes/authRoutes');
 const pacienteRoutes = require('./routes/pacienteRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
+
 const app = express();
 
 // Middlewares
@@ -21,8 +22,11 @@ app.use(cors({
     'http://localhost:5500',
     'http://localhost:5501'
   ],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 
 testConnection();
 

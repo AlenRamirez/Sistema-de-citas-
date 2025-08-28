@@ -135,6 +135,15 @@
             border-radius: 10px;
             margin-bottom: 20px;
         }
+
+        .badge-especialidad {
+            background-color: #e9ecef;
+            color: #495057;
+            padding: 0.25rem 0.5rem;
+            margin: 0.125rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+        }
     </style>
 </head>
 
@@ -298,13 +307,17 @@
                             <div class="card-body">
                                 <form id="formCrearEspecialidad" onsubmit="crearEspecialidad(event)">
                                     <div class="row g-3">
-                                        <div class="col-md-8">
+                                        <div class="col-md-6">
                                             <input type="text" class="form-control" id="nuevaEspecialidad"
                                                 placeholder="Nombre de la especialidad" required>
                                         </div>
-                                        <div class="col-md-4">
+                                        <div class="col-md-6">
+                                            <textarea class="form-control" id="descripcionEspecialidad"
+                                                placeholder="Descripción (opcional)" rows="1"></textarea>
+                                        </div>
+                                        <div class="col-md-12">
                                             <button class="btn btn-primary" type="submit">
-                                                <i class="fas fa-plus"></i> Agregar
+                                                <i class="fas fa-plus"></i> Agregar Especialidad
                                             </button>
                                         </div>
                                     </div>
@@ -384,23 +397,31 @@
                         <!-- Filtros de citas -->
                         <div class="filters">
                             <div class="row g-3">
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <select class="form-select" id="filtroEstadoCita">
                                         <option value="todos">Todos los estados</option>
-                                        <option value="pendiente">Pendientes</option>
-                                        <option value="confirmada">Confirmadas</option>
-                                        <option value="realizada">Realizadas</option>
-                                        <option value="cancelada">Canceladas</option>
+                                        <option value="Pendiente">Pendientes</option>
+                                        <option value="Confirmada">Confirmadas</option>
+                                        <option value="Realizada">Realizadas</option>
+                                        <option value="Cancelada">Canceladas</option>
+                                        <option value="No asistió">No asistió</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <input type="date" class="form-control" id="fechaInicioCitas">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <input type="date" class="form-control" id="fechaFinCitas">
                                 </div>
-                                <div class="col-md-3">
-                                    <button class="btn btn-primary" onclick="cargarCitas()">
+                                <div class="col-md-2">
+                                    <input type="text" class="form-control" id="filtroMedicoCita" placeholder="Médico">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" class="form-control" id="filtroPacienteCita"
+                                        placeholder="Paciente">
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-primary w-100" onclick="cargarCitas()">
                                         <i class="fas fa-search"></i> Filtrar
                                     </button>
                                 </div>
@@ -420,6 +441,7 @@
                                         <th>Médico</th>
                                         <th>Fecha</th>
                                         <th>Hora</th>
+                                        <th>Especialidad</th>
                                         <th>Motivo</th>
                                         <th>Estado</th>
                                         <th>Acciones</th>
@@ -443,6 +465,8 @@
                                     <option value="citas_especialidad">Citas por Especialidad</option>
                                     <option value="no_asistencia">Tasa de No Asistencia</option>
                                     <option value="citas_mensuales">Citas Mensuales</option>
+                                    <option value="estados_citas">Estados de Citas</option>
+                                    <option value="eficiencia_medicos">Eficiencia Médicos</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
@@ -452,7 +476,7 @@
                                 <input type="date" class="form-control" id="fechaFinReporte">
                             </div>
                             <div class="col-md-2">
-                                <button class="btn btn-primary" onclick="generarReporte()">
+                                <button class="btn btn-primary w-100" onclick="generarReporte()">
                                     <i class="fas fa-chart-bar"></i> Generar
                                 </button>
                             </div>
@@ -484,12 +508,42 @@
                     <div class="mb-3">
                         <label class="form-label">Motivo de cancelación:</label>
                         <textarea class="form-control" id="motivoCancelacion" rows="3"
-                            placeholder="Ingrese el motivo de la cancelación..."></textarea>
+                            placeholder="Ingrese el motivo de la cancelación..." required></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                     <button type="button" class="btn btn-danger" onclick="confirmarCancelacion()">Cancelar Cita</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para cambiar estado de cita -->
+    <div class="modal fade" id="modalCambiarEstado" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cambiar Estado de Cita</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nuevo estado:</label>
+                        <select class="form-select" id="nuevoEstadoCita">
+                            <option value="realizada">Realizada</option>
+                            <option value="no_asistio">No asistió</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notas (opcional):</label>
+                        <textarea class="form-control" id="notasEstado" rows="3"
+                            placeholder="Ingrese notas adicionales..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmarCambioEstado()">Actualizar</button>
                 </div>
             </div>
         </div>
@@ -501,6 +555,7 @@
         const API_BASE_URL = 'http://localhost:3000';
         let currentUser = null;
         let citaACancelar = null;
+        let citaCambiarEstado = null;
 
         // Función para obtener token
         function getToken() {
@@ -534,6 +589,12 @@
 
                 currentUser = payload;
                 console.log('Usuario autenticado:', currentUser);
+
+                // Mostrar nombre del usuario
+                if (currentUser.nombre_completo) {
+                    document.getElementById('nombreAdmin').textContent = currentUser.nombre_completo;
+                }
+
                 return true;
             } catch (error) {
                 console.error('Error verificando token:', error);
@@ -564,23 +625,39 @@
             const sections = document.querySelectorAll('.content-section');
 
             links.forEach(link => {
-                link.addEventListener('click', e => {
+                link.addEventListener('click', async e => {
                     e.preventDefault();
                     const target = link.dataset.section;
 
+                    // Ocultar todas las secciones
                     sections.forEach(sec => sec.style.display = 'none');
-                    document.getElementById(target).style.display = 'block';
+
+                    // Mostrar la sección seleccionada
+                    const targetSection = document.getElementById(target);
+                    if (targetSection) {
+                        targetSection.style.display = 'block';
+                    }
+
+                    // Actualizar navegación activa
                     links.forEach(l => l.classList.remove('active'));
                     link.classList.add('active');
 
                     // Cargar datos según la sección
-                    switch (target) {
-                        case 'usuarios':
-                            cargarUsuarios();
-                            break;
-                        case 'citas':
-                            cargarCitas();
-                            break;
+                    try {
+                        switch (target) {
+                            case 'usuarios':
+                                await cargarUsuarios();
+                                break;
+                            case 'citas':
+                                await cargarCitas();
+                                break;
+                            case 'dashboard':
+                                await cargarDashboard();
+                                break;
+                        }
+                    } catch (error) {
+                        console.error(`Error al cargar sección ${target}:`, error);
+                        mostrarAlerta(`Error al cargar la sección ${target}: ${error.message}`, 'danger');
                     }
                 });
             });
@@ -626,22 +703,21 @@
         // Usuarios
         async function cargarUsuarios(page = 1) {
             const loading = document.getElementById('usuariosLoading');
-            const container = document.getElementById('usuariosContainer');
 
-            loading.style.display = 'block';
+            if (loading) loading.style.display = 'block';
 
             try {
                 const tipo = document.getElementById('filtroTipoUsuario')?.value || 'todos';
                 const estado = document.getElementById('filtroEstadoUsuario')?.value || 'todos';
 
                 const params = new URLSearchParams({
-                    page,
-                    limit: 10,
+                    page: page.toString(),
+                    limit: '10',
                     tipo,
                     estado
                 });
 
-                const response = await fetch(`${API_BASE_URL}/admin/usuarios?${params}`, {
+                const response = await fetch(`${API_BASE_URL}/admin/users?${params}`, {
                     headers: getHeaders()
                 });
 
@@ -660,8 +736,13 @@
             } catch (error) {
                 console.error('Error al cargar usuarios:', error);
                 mostrarAlerta('Error al cargar usuarios: ' + error.message, 'danger');
+
+                const tbody = document.getElementById('tablaUsuarios');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error al cargar usuarios</td></tr>';
+                }
             } finally {
-                loading.style.display = 'none';
+                if (loading) loading.style.display = 'none';
             }
         }
 
@@ -702,7 +783,7 @@
 
         async function toggleUsuario(id, activar) {
             try {
-                const response = await fetch(`${API_BASE_URL}/admin/usuarios/${id}/estado`, {
+                const response = await fetch(`${API_BASE_URL}/admin/users/${id}/toggle-status`, {
                     method: 'PUT',
                     headers: getHeaders(),
                     body: JSON.stringify({ activo: activar })
@@ -732,7 +813,7 @@
             }
 
             try {
-                const response = await fetch(`${API_BASE_URL}/admin/usuarios/${id}`, {
+                const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
                     method: 'DELETE',
                     headers: getHeaders()
                 });
@@ -794,8 +875,11 @@
             especialidades.forEach(esp => {
                 // Lista visual
                 const badge = document.createElement('span');
-                badge.className = 'badge bg-primary me-2 mb-2';
-                badge.textContent = esp.nombre;
+                badge.className = 'badge-especialidad me-2 mb-2 d-inline-block';
+                badge.innerHTML = `
+                    ${esp.nombre}
+                    ${esp.descripcion ? `<small class="d-block text-muted">${esp.descripcion}</small>` : ''}
+                `;
                 lista.appendChild(badge);
 
                 // Select para el formulario
@@ -810,31 +894,45 @@
             event.preventDefault();
 
             const nombre = document.getElementById('nuevaEspecialidad').value.trim();
-            if (!nombre) return;
+            const descripcion = document.getElementById('descripcionEspecialidad').value.trim();
+
+            if (!nombre) {
+                mostrarAlerta("El nombre de la especialidad es obligatorio", "warning");
+                return;
+            }
+
+            if (!confirm("¿Está seguro que quiere registrar la especialidad?")) {
+                return;
+            }
 
             try {
                 const response = await fetch(`${API_BASE_URL}/admin/especialidades`, {
                     method: 'POST',
                     headers: getHeaders(),
-                    body: JSON.stringify({ nombre })
+                    body: JSON.stringify({
+                        nombre,
+                        descripcion: descripcion || null
+                    })
                 });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
 
                 const data = await response.json();
 
+                if (!response.ok) {
+                    mostrarAlerta(data.message || `Error HTTP ${response.status}`, "danger");
+                    return;
+                }
+
                 if (data.success) {
-                    mostrarAlerta(data.message, 'success');
+                    mostrarAlerta(data.message, "success");
                     document.getElementById('nuevaEspecialidad').value = '';
+                    document.getElementById('descripcionEspecialidad').value = '';
                     cargarEspecialidades();
                 } else {
-                    throw new Error(data.message || 'Error en la respuesta');
+                    mostrarAlerta(data.message || "Error en la respuesta", "danger");
                 }
             } catch (error) {
-                console.error('Error al crear especialidad:', error);
-                mostrarAlerta('Error al crear especialidad: ' + error.message, 'danger');
+                console.error("Error al crear especialidad:", error);
+                mostrarAlerta("Error al crear especialidad: " + error.message, "danger");
             }
         }
 
@@ -862,6 +960,10 @@
                 especialidades
             };
 
+            if (!confirm("¿Está seguro que quiere registrar al doctor?")) {
+                return;
+            }
+
             try {
                 const response = await fetch(`${API_BASE_URL}/admin/medicos`, {
                     method: 'POST',
@@ -879,7 +981,7 @@
                     mostrarAlerta(data.message, 'success');
                     document.getElementById('formCrearMedico').reset();
                 } else {
-                    throw new Error(data.message || 'Error en la respuesta');
+                    mostrarAlerta(data.message || 'Error al crear médico', 'danger');
                 }
             } catch (error) {
                 console.error('Error al crear médico:', error);
@@ -890,20 +992,26 @@
         // Citas
         async function cargarCitas(page = 1) {
             const loading = document.getElementById('citasLoading');
-            loading.style.display = 'block';
+
+            if (loading) loading.style.display = 'block';
 
             try {
                 const estado = document.getElementById('filtroEstadoCita')?.value || 'todos';
                 const fechaInicio = document.getElementById('fechaInicioCitas')?.value || '';
                 const fechaFin = document.getElementById('fechaFinCitas')?.value || '';
+                const medico = document.getElementById('filtroMedicoCita')?.value || '';
+                const paciente = document.getElementById('filtroPacienteCita')?.value || '';
 
                 const params = new URLSearchParams({
-                    page,
-                    limit: 10,
-                    estado,
-                    fecha_inicio: fechaInicio,
-                    fecha_fin: fechaFin
+                    page: page.toString(),
+                    limit: '10'
                 });
+
+                if (estado && estado !== 'todos') params.append('estado', estado);
+                if (fechaInicio) params.append('fecha_inicio', fechaInicio);
+                if (fechaFin) params.append('fecha_fin', fechaFin);
+                if (medico.trim()) params.append('medico', medico);
+                if (paciente.trim()) params.append('paciente', paciente);
 
                 const response = await fetch(`${API_BASE_URL}/admin/citas?${params}`, {
                     headers: getHeaders()
@@ -925,7 +1033,7 @@
                 console.error('Error al cargar citas:', error);
                 mostrarAlerta('Error al cargar citas: ' + error.message, 'danger');
             } finally {
-                loading.style.display = 'none';
+                if (loading) loading.style.display = 'none';
             }
         }
 
@@ -934,48 +1042,87 @@
             tbody.innerHTML = '';
 
             if (!citas || citas.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No se encontraron citas</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">No se encontraron citas</td></tr>';
                 return;
             }
 
             citas.forEach(cita => {
                 const tr = document.createElement('tr');
+                const fecha = cita.fecha ? new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-ES') : 'N/A';
+
+                const estadoColores = {
+                    'Pendiente': '#FFC107',
+                    'Confirmada': '#17A2B8',
+                    'Realizada': '#28A745',
+                    'Cancelada': '#DC3545',
+                    'No asistió': '#FD7E14'
+                };
+
+                let badgeColor = cita.color_estado || estadoColores[cita.estado] || '#6C757D';
+                let estadoTexto = cita.estado || 'Pendiente';
+
                 tr.innerHTML = `
                     <td>${cita.paciente || 'N/A'}</td>
                     <td>${cita.medico || 'N/A'}</td>
-                    <td>${new Date(cita.fecha).toLocaleDateString('es-ES')}</td>
-                    <td>${cita.hora_inicio} - ${cita.hora_fin}</td>
-                    <td>${cita.motivo || 'N/A'}</td>
-                    <td><span class="status-${(cita.estado || 'pendiente').toLowerCase().replace(' ', '_')}">${cita.estado || 'Pendiente'}</span></td>
+                    <td>${fecha}</td>
+                    <td>${cita.hora_inicio || 'N/A'} - ${cita.hora_fin || 'N/A'}</td>
+                    <td>${cita.especialidades || 'N/A'}</td>
+                    <td>${cita.motivo || 'Sin motivo'}</td>
                     <td>
-                        ${cita.estado !== 'Cancelada' && cita.estado !== 'cancelada' ?
-                        `<button class="btn btn-danger btn-sm" onclick="abrirModalCancelar(${cita.id_cita})">
-                                <i class="fas fa-times"></i> Cancelar
-                            </button>` :
-                        '<span class="text-muted">Cancelada</span>'
+                        <span class="badge" style="background-color: ${badgeColor}; color: white;">
+                            ${estadoTexto}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            ${(cita.permite_cancelacion && estadoTexto !== 'Cancelada' && estadoTexto !== 'Realizada') ?
+                        `<button class="btn btn-danger btn-sm" onclick="mostrarModalCancelacion(${cita.id_cita})" title="Cancelar cita">
+                                    <i class="fas fa-times"></i>
+                                </button>` : ''
                     }
+                            ${(estadoTexto === 'Pendiente' || estadoTexto === 'Confirmada') ?
+                        `<button class="btn btn-info btn-sm" onclick="mostrarModalCambiarEstado(${cita.id_cita})" title="Cambiar estado">
+                                    <i class="fas fa-edit"></i>
+                                </button>` : ''
+                    }
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        function abrirModalCancelar(idCita) {
+        function mostrarModalCancelacion(idCita) {
             citaACancelar = idCita;
+            document.getElementById('motivoCancelacion').value = '';
             const modal = new bootstrap.Modal(document.getElementById('modalCancelarCita'));
             modal.show();
         }
 
-        async function confirmarCancelacion() {
-            if (!citaACancelar) return;
+        function mostrarModalCambiarEstado(idCita) {
+            citaCambiarEstado = idCita;
+            document.getElementById('nuevoEstadoCita').value = 'realizada';
+            document.getElementById('notasEstado').value = '';
+            const modal = new bootstrap.Modal(document.getElementById('modalCambiarEstado'));
+            modal.show();
+        }
 
+        async function confirmarCancelacion() {
             const motivo = document.getElementById('motivoCancelacion').value.trim();
 
+            if (!motivo) {
+                mostrarAlerta('El motivo de cancelación es requerido', 'warning');
+                return;
+            }
+
             try {
-                const response = await fetch(`${API_BASE_URL}/admin/citas/${citaACancelar}/cancelar`, {
+                const response = await fetch(`${API_BASE_URL}/admin/citas/${citaACancelar}/cancel`, {
                     method: 'PUT',
                     headers: getHeaders(),
-                    body: JSON.stringify({ motivo })
+                    body: JSON.stringify({
+                        motivo,
+                        cancelada_por: 'admin'
+                    })
                 });
 
                 if (!response.ok) {
@@ -986,18 +1133,52 @@
 
                 if (data.success) {
                     mostrarAlerta(data.message, 'success');
-                    bootstrap.Modal.getInstance(document.getElementById('modalCancelarCita')).hide();
-                    document.getElementById('motivoCancelacion').value = '';
                     cargarCitas();
+
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalCancelarCita'));
+                    modal.hide();
                 } else {
-                    throw new Error(data.message || 'Error en la respuesta');
+                    throw new Error(data.message || 'Error al cancelar cita');
                 }
             } catch (error) {
                 console.error('Error al cancelar cita:', error);
                 mostrarAlerta('Error al cancelar cita: ' + error.message, 'danger');
             }
+        }
 
-            citaACancelar = null;
+        async function confirmarCambioEstado() {
+            const estado = document.getElementById('nuevoEstadoCita').value;
+            const notas = document.getElementById('notasEstado').value.trim();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/citas/${citaCambiarEstado}/status`, {
+                    method: 'PUT',
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        estado,
+                        notas
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    mostrarAlerta(data.message, 'success');
+                    cargarCitas();
+
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalCambiarEstado'));
+                    modal.hide();
+                } else {
+                    throw new Error(data.message || 'Error al actualizar estado');
+                }
+            } catch (error) {
+                console.error('Error al actualizar estado:', error);
+                mostrarAlerta('Error al actualizar estado: ' + error.message, 'danger');
+            }
         }
 
         // Reportes
@@ -1013,11 +1194,10 @@
             const fechaFin = document.getElementById('fechaFinReporte').value;
 
             try {
-                const params = new URLSearchParams({
-                    tipo,
-                    fecha_inicio: fechaInicio,
-                    fecha_fin: fechaFin
-                });
+                const params = new URLSearchParams({ tipo });
+
+                if (fechaInicio) params.append('fecha_inicio', fechaInicio);
+                if (fechaFin) params.append('fecha_fin', fechaFin);
 
                 const response = await fetch(`${API_BASE_URL}/admin/reportes?${params}`, {
                     headers: getHeaders()
@@ -1050,7 +1230,7 @@
                 return;
             }
 
-            let html = '<div class="table-responsive"><table class="table table-striped">';
+            let html = '<div class="card"><div class="card-body"><div class="table-responsive"><table class="table table-striped">';
 
             switch (tipo) {
                 case 'citas_especialidad':
@@ -1069,7 +1249,7 @@
                     datos.forEach(item => {
                         html += `
                             <tr>
-                                <td>${item.especialidad || 'N/A'}</td>
+                                <td>${item.especialidad || 'Sin especialidad'}</td>
                                 <td>${item.total_citas || 0}</td>
                                 <td class="text-success">${item.realizadas || 0}</td>
                                 <td class="text-danger">${item.canceladas || 0}</td>
@@ -1097,7 +1277,7 @@
                                 <td>${item.medico || 'N/A'}</td>
                                 <td>${item.total_citas || 0}</td>
                                 <td class="text-warning">${item.no_asistio || 0}</td>
-                                <td class="text-danger">${item.tasa_no_asistencia || 0}%</td>
+                                <td class="text-danger">${parseFloat(item.tasa_no_asistencia || 0).toFixed(2)}%</td>
                             </tr>
                         `;
                     });
@@ -1111,6 +1291,34 @@
                                 <th>Total Citas</th>
                                 <th>Realizadas</th>
                                 <th>Canceladas</th>
+                                <th>No Asistió</th>
+                                <th>Pendientes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+                    datos.forEach(item => {
+                        const fechaMes = item.mes ? new Date(item.mes + '-01').toLocaleDateString('es-ES', { year: 'numeric', month: 'long' }) : 'N/A';
+                        html += `
+                            <tr>
+                                <td>${fechaMes}</td>
+                                <td>${item.total_citas || 0}</td>
+                                <td class="text-success">${item.realizadas || 0}</td>
+                                <td class="text-danger">${item.canceladas || 0}</td>
+                                <td class="text-warning">${item.no_asistio || 0}</td>
+                                <td class="text-info">${item.pendientes || 0}</td>
+                            </tr>
+                        `;
+                    });
+                    break;
+
+                case 'estados_citas':
+                    html += `
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Estado</th>
+                                <th>Total Citas</th>
+                                <th>Porcentaje</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1118,28 +1326,70 @@
                     datos.forEach(item => {
                         html += `
                             <tr>
-                                <td>${item.mes || 'N/A'}</td>
+                                <td>
+                                    <span class="badge" style="background-color: ${item.color}; color: white;">
+                                        ${item.estado}
+                                    </span>
+                                </td>
                                 <td>${item.total_citas || 0}</td>
-                                <td class="text-success">${item.realizadas || 0}</td>
-                                <td class="text-danger">${item.canceladas || 0}</td>
+                                <td>${parseFloat(item.porcentaje || 0).toFixed(2)}%</td>
                             </tr>
                         `;
                     });
                     break;
+
+                case 'eficiencia_medicos':
+                    html += `
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Médico</th>
+                                <th>Total Citas</th>
+                                <th>Realizadas</th>
+                                <th>Canceladas</th>
+                                <th>No Asistió</th>
+                                <th>Tasa Éxito (%)</th>
+                                <th>Tiempo Promedio (min)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+                    datos.forEach(item => {
+                        html += `
+                            <tr>
+                                <td>${item.medico || 'N/A'}</td>
+                                <td>${item.total_citas || 0}</td>
+                                <td class="text-success">${item.realizadas || 0}</td>
+                                <td class="text-danger">${item.canceladas || 0}</td>
+                                <td class="text-warning">${item.no_asistio || 0}</td>
+                                <td class="text-primary">${parseFloat(item.tasa_exito || 0).toFixed(2)}%</td>
+                                <td>${parseFloat(item.tiempo_promedio_consulta || 0).toFixed(0)} min</td>
+                            </tr>
+                        `;
+                    });
+                    break;
+
+                default:
+                    html += `
+                        <tbody>
+                            <tr><td colspan="100%" class="text-center">Tipo de reporte no reconocido</td></tr>
+                        </tbody>
+                    `;
             }
 
-            html += '</tbody></table></div>';
+            html += '</tbody></table></div></div></div>';
             container.innerHTML = html;
         }
 
         // Paginación
         function renderizarPaginacion(pagination, containerId, callback) {
             const container = document.getElementById(containerId);
-            if (!container || !pagination) return;
+            if (!container || !pagination || pagination.pages <= 1) {
+                if (container) container.innerHTML = '';
+                return;
+            }
 
             let html = '<ul class="pagination">';
 
-            // Botón anterior
             html += `
                 <li class="page-item ${pagination.page === 1 ? 'disabled' : ''}">
                     <button class="page-link" onclick="${callback.name}(${pagination.page - 1})" ${pagination.page === 1 ? 'disabled' : ''}>
@@ -1148,24 +1398,28 @@
                 </li>
             `;
 
-            // Páginas
-            for (let i = 1; i <= pagination.pages; i++) {
-                if (i === pagination.page ||
-                    i === 1 ||
-                    i === pagination.pages ||
-                    (i >= pagination.page - 1 && i <= pagination.page + 1)) {
+            const maxPagesToShow = 5;
+            const startPage = Math.max(1, pagination.page - Math.floor(maxPagesToShow / 2));
+            const endPage = Math.min(pagination.pages, startPage + maxPagesToShow - 1);
 
-                    html += `
-                        <li class="page-item ${i === pagination.page ? 'active' : ''}">
-                            <button class="page-link" onclick="${callback.name}(${i})">${i}</button>
-                        </li>
-                    `;
-                } else if (i === pagination.page - 2 || i === pagination.page + 2) {
-                    html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
-                }
+            if (startPage > 1) {
+                html += `<li class="page-item"><button class="page-link" onclick="${callback.name}(1)">1</button></li>`;
+                if (startPage > 2) html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
             }
 
-            // Botón siguiente
+            for (let i = startPage; i <= endPage; i++) {
+                html += `
+                    <li class="page-item ${i === pagination.page ? 'active' : ''}">
+                        <button class="page-link" onclick="${callback.name}(${i})">${i}</button>
+                    </li>
+                `;
+            }
+
+            if (endPage < pagination.pages) {
+                if (endPage < pagination.pages - 1) html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                html += `<li class="page-item"><button class="page-link" onclick="${callback.name}(${pagination.pages})">${pagination.pages}</button></li>`;
+            }
+
             html += `
                 <li class="page-item ${pagination.page === pagination.pages ? 'disabled' : ''}">
                     <button class="page-link" onclick="${callback.name}(${pagination.page + 1})" ${pagination.page === pagination.pages ? 'disabled' : ''}>
@@ -1180,8 +1434,11 @@
 
         // Utilidades
         function mostrarAlerta(mensaje, tipo = 'info') {
-            // Remover alertas anteriores
-            document.querySelectorAll('.alert').forEach(alert => alert.remove());
+            document.querySelectorAll('.alert').forEach(alert => {
+                if (alert.classList.contains('alert-dismissible')) {
+                    alert.remove();
+                }
+            });
 
             const alertContainer = document.createElement('div');
             alertContainer.className = `alert alert-${tipo} alert-dismissible fade show`;
@@ -1193,7 +1450,6 @@
             const mainContent = document.querySelector('.main-content');
             mainContent.insertBefore(alertContainer, mainContent.firstChild);
 
-            // Auto-remover después de 5 segundos
             setTimeout(() => {
                 if (alertContainer.parentNode) {
                     alertContainer.remove();
@@ -1208,15 +1464,13 @@
             }
         }
 
-        // Auto-refresh cada 5 minutos para el dashboard
         setInterval(() => {
             const dashboardSection = document.getElementById('dashboard');
             if (dashboardSection && dashboardSection.style.display !== 'none') {
                 cargarDashboard();
             }
-        }, 300000); // 5 minutos
+        }, 300000);
 
-        // Manejo de conexión perdida
         window.addEventListener('online', function () {
             mostrarAlerta('Conexión restaurada', 'success');
             cargarDashboard();
