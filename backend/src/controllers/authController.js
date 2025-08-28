@@ -51,7 +51,7 @@ exports.login = async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      "SELECT id_usuario, correo, password_hash, id_rol, intentos_fallidos, bloqueado_hasta FROM usuarios WHERE correo = ?",
+      "SELECT id_usuario, correo, password_hash, id_rol, activo, intentos_fallidos, bloqueado_hasta FROM usuarios WHERE correo = ?",
       [correo]
     );
 
@@ -60,6 +60,11 @@ exports.login = async (req, res) => {
     }
 
     const user = rows[0];
+
+    // Validar si el usuario está activo
+    if (user.activo === 0) {
+      return res.status(403).json({ message: "Usuario inactivo. Contacte al administrador." });
+    }
 
     if (user.bloqueado_hasta && new Date(user.bloqueado_hasta) > new Date()) {
       return res.status(403).json({
@@ -111,7 +116,6 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Error en el servidor" });
   }
 };
-
 // FORGOT PASSWORD
 exports.forgotPassword = async (req, res) => {
   const { correo } = req.body;

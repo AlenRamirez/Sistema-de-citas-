@@ -717,7 +717,7 @@
                     estado
                 });
 
-                const response = await fetch(`${API_BASE_URL}/admin/users?${params}`, {
+                const response = await fetch(`${API_BASE_URL}/admin/usuarios?${params}`, {
                     headers: getHeaders()
                 });
 
@@ -771,9 +771,7 @@
                                     onclick="toggleUsuario(${usuario.id_usuario}, ${!usuario.activo})">
                                 ${usuario.activo ? 'Desactivar' : 'Activar'}
                             </button>
-                            <button class="btn btn-danger" onclick="eliminarUsuario(${usuario.id_usuario})">
-                                Eliminar
-                            </button>
+                            
                         </div>
                     </td>
                 `;
@@ -783,7 +781,7 @@
 
         async function toggleUsuario(id, activar) {
             try {
-                const response = await fetch(`${API_BASE_URL}/admin/users/${id}/toggle-status`, {
+                const response = await fetch(`${API_BASE_URL}/admin/usuarios/${id}/estado`, {
                     method: 'PUT',
                     headers: getHeaders(),
                     body: JSON.stringify({ activo: activar })

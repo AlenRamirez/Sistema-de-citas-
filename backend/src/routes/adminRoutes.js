@@ -30,11 +30,24 @@ router.delete('/usuarios/:id', adminController.deleteUser);
 
 router.post('/medicos', adminController.createMedico);
 
+
+
 router.get('/citas', adminController.getAllCitas);
 
 router.put('/citas/:id/cancelar', adminController.cancelCita);
 
 router.get('/especialidades', adminController.getEspecialidades);
 router.post('/especialidades', adminController.createEspecialidad);
+
+
+/**
+ * @route GET /api/admin/reportes
+ * @desc Obtener reportes según tipo especificado
+ * @access Admin
+ * @params tipo (required): citas_especialidad, no_asistencia, citas_mensuales, estados_citas, eficiencia_medicos
+ * @params fecha_inicio (optional): YYYY-MM-DD
+ * @params fecha_fin (optional): YYYY-MM-DD
+ */
+router.get('/reportes', adminController.getReportes);
 
 module.exports = router;
