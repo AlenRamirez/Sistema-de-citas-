@@ -377,24 +377,67 @@
   }
 
   /* Botón cancelar cita */
-  .btn-cancelar {
-    background-color: #dc3545;
-    color: #fff;
-    border: none;
-    padding: 6px 14px;
-    font-size: 0.9rem;
+  .appointment-card {
+    border: 1px solid #dee2e6;
     border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.2s ease, transform 0.1s ease;
+    padding: 20px;
+    margin-bottom: 15px;
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
-  .btn-cancelar:hover {
-    background-color: #bb2d3b;
-    transform: scale(1.05);
+  .appointment-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 15px;
   }
 
-  .btn-cancelar i {
-    margin-right: 4px;
+  .status-badge {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    font-weight: 500;
+  }
+
+  .status-programada {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .status-confirmada {
+    background-color: #cce5ff;
+    color: #004085;
+  }
+
+  .btn-cancel {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+  }
+
+  .btn-cancel:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+    color: white;
+  }
+
+  .modal-header {
+    background-color: #dc3545;
+    color: white;
+  }
+
+  .loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
   }
 </style>
 
@@ -525,6 +568,9 @@
               <div class="loading">
                 <div class="text-center">
                   <div class="spinner-border" role="status">
+                    <div class="col-md-2 text-end">
+
+                    </div>
                     <span class="visually-hidden">Cargando citas...</span>
                   </div>
                 </div>
@@ -762,6 +808,7 @@
     let totalPages = 1;
     let selectedHorarioElement = null;
     let selectedHorarioData = null;
+    let citaParaCancelar = null; // Variable global para manejar la cita a cancelar
 
     // Utilidades
     function getToken() {
@@ -790,9 +837,9 @@
       const alertDiv = document.createElement('div');
       alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
       alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      `;
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  `;
       alertContainer.appendChild(alertDiv);
 
       if (duration > 0) {
@@ -819,6 +866,7 @@
       return `${formatDate(dateString)} ${timeString}`;
     }
 
+    // FUNCIÓN PARA VERIFICAR SI SE PUEDE CANCELAR LA CITA
     function canCancelAppointment(fechaCita, horaCita) {
       if (!fechaCita || !horaCita) return false;
 
@@ -1103,7 +1151,7 @@
       }
     }
 
-    // Mostrar citas
+    // MOSTRAR CITAS - AQUÍ SE INTEGRA EL BOTÓN DE CANCELAR
     function mostrarCitas(citas) {
       const container = document.getElementById('citasContainer');
       if (!container) return;
@@ -1120,44 +1168,169 @@
         const puedeCancel = canCancelAppointment(cita.fecha, cita.hora_inicio);
 
         html += `
-          <div class="item-card ${estadoClass}">
-            <div class="d-flex justify-content-between align-items-start">
-              <div class="flex-grow-1">
-                <h6><strong>${cita.motivo || 'Consulta Médica'}</strong></h6>
-                <p class="mb-1">
-                  <i class="bi bi-calendar3 me-2"></i>
-                  ${formatDateTime(cita.fecha, cita.hora_inicio)} - ${cita.hora_fin}
-                </p>
-                <p class="mb-1">
-                  <i class="bi bi-person-badge me-2"></i>
-                  Dr. ${cita.medico_nombre}
-                </p>
-                <p class="mb-1">
-                  <i class="bi bi-hospital me-2"></i>
-                  ${cita.especialidades || 'Consulta General'}
-                </p>
-                ${cita.consultorio ? `<p class="mb-1"><i class="bi bi-geo-alt me-2"></i>${cita.consultorio}</p>` : ''}
-                ${!puedeCancel && (cita.estado === 'pendiente' || cita.estado === 'confirmada') ?
+      <div class="item-card ${estadoClass}">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="flex-grow-1">
+            <h6><strong>${cita.motivo || 'Consulta Médica'}</strong></h6>
+            <p class="mb-1">
+              <i class="bi bi-calendar3 me-2"></i>
+              ${formatDateTime(cita.fecha, cita.hora_inicio)} - ${cita.hora_fin}
+            </p>
+            <p class="mb-1">
+              <i class="bi bi-person-badge me-2"></i>
+              Dr. ${cita.medico_nombre}
+            </p>
+            <p class="mb-1">
+              <i class="bi bi-hospital me-2"></i>
+              ${cita.especialidades || 'Consulta General'}
+            </p>
+            ${cita.consultorio ? `<p class="mb-1"><i class="bi bi-geo-alt me-2"></i>${cita.consultorio}</p>` : ''}
+            ${!puedeCancel && (cita.estado === 'pendiente' || cita.estado === 'confirmada') ?
             '<div class="time-restriction-warning"><i class="bi bi-exclamation-triangle me-1"></i>No se puede cancelar (menos de 24h)</div>' : ''}
-              </div>
-              <div class="text-end">
-                <span class="estado-badge ${badgeClass}">${cita.estado.charAt(0).toUpperCase() + cita.estado.slice(1)}</span>
-                <div class="cita-actions mt-2">
-                  <button class="btn btn-sm btn-info" onclick="descargarComprobante(${cita.id_cita})">
-                    <i class="bi bi-download"></i> PDF
-                  </button>
-                  ${(cita.estado === 'pendiente' || cita.estado === 'confirmada') && puedeCancel ?
-            `<button class="btn btn-sm btn-warning" onclick="cancelarCita(${cita.id_cita})">
-                        <i class="bi bi-x-circle"></i> Cancelar
-                      </button>` : ''}
-                </div>
-              </div>
+          </div>
+          <div class="text-end">
+            <span class="estado-badge ${badgeClass}">${cita.estado.charAt(0).toUpperCase() + cita.estado.slice(1)}</span>
+            <div class="cita-actions mt-2">
+              <button class="btn btn-sm btn-info" onclick="descargarComprobante(${cita.id_cita})">
+                <i class="bi bi-download"></i> PDF
+              </button>
+              ${(cita.estado === 'pendiente' || cita.estado === 'confirmada') ?
+            `<button type="button"
+      class="btn btn-cancel btn-sm"
+      ${!puedeCancel ? " title='No se puede cancelar (menos de 24h)'" : ""}
+      onclick="cancelarCita(${cita.id_cita}, '${cita.fecha}', '${cita.hora_inicio}')">
+      <i class="bi bi-x-circle me-1"></i>
+      Cancelar
+  </button>` : ''}
+
             </div>
           </div>
-        `;
+        </div>
+      </div>
+    `;
       });
 
       container.innerHTML = html;
+    }
+
+    // FUNCIÓN PRINCIPAL PARA CANCELAR CITA
+    function cancelarCita(idCita, fechaCita, horaCita) {
+      // Verificar si se puede cancelar
+      if (!canCancelAppointment(fechaCita, horaCita)) {
+        showAlert(
+          'No se puede cancelar esta cita porque faltan menos de 24 horas para la fecha programada.',
+          'warning'
+        );
+        return;
+      }
+
+      // Guardar datos de la cita para cancelar
+      citaParaCancelar = {
+        id: idCita,
+        fecha: fechaCita,
+        hora: horaCita
+      };
+
+      // Llenar detalles en el modal
+      const citaDetails = document.getElementById('citaDetails');
+      if (citaDetails) {
+        citaDetails.innerHTML = `
+      <div class="row">
+        <div class="col-6">
+          <strong>Fecha:</strong><br>
+          ${new Date(fechaCita).toLocaleDateString('es-CO')}
+        </div>
+        <div class="col-6">
+          <strong>Hora:</strong><br>
+          ${horaCita}
+        </div>
+      </div>
+      <div class="mt-2">
+        <strong>ID Cita:</strong> #${idCita}
+      </div>
+    `;
+      }
+
+      // Limpiar campos
+      const motivoCancelacion = document.getElementById('motivoCancelacion');
+      const confirmCheckbox = document.getElementById('confirmCancellation');
+
+      if (motivoCancelacion) motivoCancelacion.value = '';
+      if (confirmCheckbox) confirmCheckbox.checked = false;
+
+      // Mostrar modal
+      const modal = new bootstrap.Modal(document.getElementById('cancelModal'));
+      modal.show();
+    }
+
+    // FUNCIÓN PARA EJECUTAR LA CANCELACIÓN
+    async function ejecutarCancelacionCita() {
+      try {
+        // Validaciones del formulario
+        const motivoCancelacion = document.getElementById('motivoCancelacion')?.value?.trim() || '';
+        const confirmCheckbox = document.getElementById('confirmCancellation');
+        const confirmarBtn = document.getElementById('confirmarCancelacionBtn');
+
+        if (!confirmCheckbox?.checked) {
+          showAlert('Debes confirmar que deseas cancelar la cita', 'warning');
+          return;
+        }
+
+        if (motivoCancelacion.length < 10) {
+          showAlert('Por favor proporciona un motivo de al menos 10 caracteres', 'warning');
+          document.getElementById('motivoCancelacion')?.focus();
+          return;
+        }
+
+        // Deshabilitar botón y mostrar loading
+        if (confirmarBtn) {
+          confirmarBtn.disabled = true;
+          confirmarBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Cancelando...';
+        }
+
+        showLoading(true);
+
+        // Realizar petición al backend
+        const response = await fetch(`${API_BASE_URL}/citas/${citaParaCancelar.id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            motivo_cancelacion: motivoCancelacion
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          showAlert('Cita cancelada exitosamente. Se ha notificado al médico correspondiente.', 'success');
+
+          // Cerrar modal
+          const modal = bootstrap.Modal.getInstance(document.getElementById('cancelModal'));
+          if (modal) modal.hide();
+
+          // Actualizar la interfaz (recargar citas)
+          setTimeout(() => {
+            // Recargar citas con filtros actuales
+            const filtros = obtenerFiltrosCitas();
+            cargarMisCitas(currentPage, filtros);
+          }, 1000);
+
+        } else {
+          showAlert(result.message || 'Error al cancelar la cita', 'danger');
+        }
+
+      } catch (error) {
+        console.error('Error al cancelar la cita:', error);
+        showAlert('Error de conexión. Por favor intenta nuevamente.', 'danger');
+      } finally {
+        // Restaurar botón
+        const confirmarBtn = document.getElementById('confirmarCancelacionBtn');
+        if (confirmarBtn) {
+          confirmarBtn.disabled = false;
+          confirmarBtn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Cancelar Cita';
+        }
+        showLoading(false);
+      }
     }
 
     // Actualizar estadísticas
@@ -1205,28 +1378,28 @@
       let html = '<nav><ul class="pagination">';
 
       html += `
-        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
-          <a class="page-link" href="#" onclick="cambiarPagina(${currentPage - 1})">Anterior</a>
-        </li>
-      `;
+    <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+      <a class="page-link" href="#" onclick="cambiarPagina(${currentPage - 1})">Anterior</a>
+    </li>
+  `;
 
       for (let i = 1; i <= totalPages; i++) {
         if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
           html += `
-            <li class="page-item ${i === currentPage ? 'active' : ''}">
-              <a class="page-link" href="#" onclick="cambiarPagina(${i})">${i}</a>
-            </li>
-          `;
+        <li class="page-item ${i === currentPage ? 'active' : ''}">
+          <a class="page-link" href="#" onclick="cambiarPagina(${i})">${i}</a>
+        </li>
+      `;
         } else if (i === currentPage - 3 || i === currentPage + 3) {
           html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
         }
       }
 
       html += `
-        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
-          <a class="page-link" href="#" onclick="cambiarPagina(${currentPage + 1})">Siguiente</a>
-        </li>
-      `;
+    <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+      <a class="page-link" href="#" onclick="cambiarPagina(${currentPage + 1})">Siguiente</a>
+    </li>
+  `;
 
       html += '</ul></nav>';
       container.innerHTML = html;
@@ -1274,6 +1447,99 @@
       if (fechaHasta) fechaHasta.value = '';
 
       cargarMisCitas(1);
+    }
+
+    // EVENT LISTENERS - AQUÍ SE CONFIGURAN LOS EVENTOS DE CANCELACIÓN
+    document.addEventListener('DOMContentLoaded', function () {
+      console.log('Inicializando sistema...');
+
+      // Verificar autenticación
+      if (!verificarAuth()) return;
+
+      // Cargar datos iniciales
+      cargarPerfil();
+      cargarEspecialidades();
+      cargarMedicos();
+      cargarMisCitas();
+
+      // CONFIGURAR EVENTOS DEL SISTEMA DE CANCELACIÓN
+
+      // Configurar botón de confirmación de cancelación
+      const confirmarBtn = document.getElementById('confirmarCancelacionBtn');
+      if (confirmarBtn) {
+        confirmarBtn.addEventListener('click', ejecutarCancelacionCita);
+      }
+
+      // Validación en tiempo real del motivo
+      const motivoCancelacion = document.getElementById('motivoCancelacion');
+      if (motivoCancelacion) {
+        motivoCancelacion.addEventListener('input', function () {
+          const confirmarBtn = document.getElementById('confirmarCancelacionBtn');
+          const confirmCheckbox = document.getElementById('confirmCancellation');
+
+          if (confirmarBtn) {
+            const motivoValido = this.value.trim().length >= 10;
+            const checkboxMarcado = confirmCheckbox?.checked || false;
+
+            confirmarBtn.disabled = !(motivoValido && checkboxMarcado);
+          }
+        });
+      }
+
+      // Validación del checkbox
+      const confirmCheckbox = document.getElementById('confirmCancellation');
+      if (confirmCheckbox) {
+        confirmCheckbox.addEventListener('change', function () {
+          const confirmarBtn = document.getElementById('confirmarCancelacionBtn');
+          const motivoCancelacion = document.getElementById('motivoCancelacion');
+
+          if (confirmarBtn) {
+            const motivoValido = motivoCancelacion?.value?.trim()?.length >= 10 || false;
+            const checkboxMarcado = this.checked;
+
+            confirmarBtn.disabled = !(motivoValido && checkboxMarcado);
+          }
+        });
+      }
+
+      // Configurar otros eventos existentes
+      configurarEventosAdicionales();
+
+      console.log('Sistema de cancelación inicializado');
+    });
+
+    // Función para configurar eventos adicionales (puedes agregar aquí otros eventos)
+    function configurarEventosAdicionales() {
+      // Aquí puedes agregar otros event listeners que necesites
+
+      // Ejemplo: botón de editar perfil
+      const editarBtn = document.getElementById('editarBtn');
+      if (editarBtn) {
+        editarBtn.addEventListener('click', function () {
+          const editForm = document.getElementById('editForm');
+          if (editForm) {
+            editForm.style.display = editForm.style.display === 'none' ? 'block' : 'none';
+            this.style.display = 'none';
+          }
+        });
+      }
+
+      // Ejemplo: botón de actualizar perfil
+      const actualizarBtn = document.getElementById('actualizarBtn');
+      if (actualizarBtn) {
+        actualizarBtn.addEventListener('click', actualizarPerfil);
+      }
+
+      // Ejemplo: filtros de citas
+      const filtrarBtn = document.getElementById('filtrarBtn');
+      if (filtrarBtn) {
+        filtrarBtn.addEventListener('click', filtrarCitas);
+      }
+
+      const limpiarBtn = document.getElementById('limpiarBtn');
+      if (limpiarBtn) {
+        limpiarBtn.addEventListener('click', limpiarFiltros);
+      }
     }
 
     // Buscar horarios disponibles
@@ -1562,29 +1828,40 @@
 
     // Ejecutar cancelación de cita
     async function ejecutarCancelacionCita(idCita) {
-      try {
-        showLoading(true);
-        const motivoCancelacion = document.getElementById('motivoCancelacion')?.value || '';
+        try {
+          showLoading(true);
+          const motivoCancelacion = document.getElementById('motivoCancelacion')?.value || '';
 
-        const response = await fetch(`${API_BASE_URL}/citas/${idCita}`, {
-          method: 'DELETE',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ motivo_cancelacion: motivoCancelacion })
-        });
+          const url = `${API_BASE_URL}/pacientes/citas/${idCita}`;
+          console.log("DELETE URL:", url);
 
-        const result = await response.json();
+          const response = await fetch(url, {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ motivo_cancelacion: motivoCancelacion })
+          });
 
-        if (result.success) {
-          showAlert('Cita cancelada exitosamente.', 'success');
-          cargarMisCitas(currentPage, obtenerFiltrosCitas());
-        } else {
-          showAlert(result.message || 'Error al cancelar la cita.', 'danger');
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error ${response.status}: ${errorText}`);
+          }
+
+          const result = await response.json();
+
+          if (result.success) {
+            showAlert('Cita cancelada exitosamente.', 'success');
+            cargarMisCitas(currentPage, obtenerFiltrosCitas());
+          } else {
+            showAlert(result.message || 'Error al cancelar la cita.', 'danger');
+          }
+        } catch (error) {
+          console.error('Error al cancelar la cita:', error);
+          showAlert(error.message || 'Ocurrió un error en la conexión.', 'danger');
+        } finally {
+          showLoading(false);
         }
-      } catch (error) {
-        console.error('Error al cancelar la cita:', error);
-        showAlert('Ocurrió un error en la conexión.', 'danger');
       }
-    }
+
 
     // SOLUCIÓN 1: Modificar descargarComprobante para obtener datos del paciente
     async function descargarComprobante(idCita) {

@@ -1,4 +1,6 @@
 const { pool } = require('../config/db');
+const { sendConfirmationcorreoCc, CancelcitascorreoCc } = require("../utils/mailer");
+
 const pacienteController = {
   obtenerPerfil: async (req, res) => {
     try {
@@ -395,47 +397,66 @@ const pacienteController = {
       const { id } = req.params;
       const id_paciente = req.user.id_usuario;
       const { motivo_cancelacion } = req.body;
+
       let citaQuery = `
-        SELECT c.*, h.fecha, h.hora_inicio,
-               TIMESTAMPDIFF(HOUR, NOW(), CONCAT(h.fecha, ' ', h.hora_inicio)) as horas_restantes
-        FROM citas c
-        INNER JOIN horarios h ON c.id_horario = h.id_horario
-        WHERE c.id_cita = ?
-      `;
+      SELECT c.*, h.fecha, h.hora_inicio,
+             TIMESTAMPDIFF(HOUR, NOW(), CONCAT(h.fecha, ' ', h.hora_inicio)) as horas_restantes
+      FROM citas c
+      INNER JOIN horarios h ON c.id_horario = h.id_horario
+      WHERE c.id_cita = ?
+    `;
       const params = [id];
       if (req.user.rol === 'paciente') {
         citaQuery += ' AND c.id_paciente = ? AND c.id_estado IN (1,2)';
         params.push(id_paciente);
       }
+
       const [citaRows] = await connection.execute(citaQuery, params);
       if (citaRows.length === 0) {
         await connection.rollback();
         return res.status(404).json({ success: false, message: 'Cita no encontrada o no se puede cancelar' });
       }
       const cita = citaRows[0];
+
       if (cita.horas_restantes < 24 && req.user.rol === 'paciente') {
         await connection.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'No se puede cancelar con menos de 24 horas de anticipación'
-        });
+        return res.status(400).json({ success: false, message: 'No se puede cancelar con menos de 24 horas de anticipación' });
       }
+
       const cancelador = req.user.rol === 'admin' ? 'admin' : 'paciente';
+
       await connection.execute(`
-        UPDATE citas
-        SET id_estado = 4, cancelada_por = ?, fecha_cancelacion = NOW(), fecha_actualizacion = NOW()
-        WHERE id_cita = ?
-      `, [cancelador, id]);
+      UPDATE citas
+      SET id_estado = 4, cancelada_por = ?, fecha_cancelacion = NOW(), fecha_actualizacion = NOW()
+      WHERE id_cita = ?
+    `, [cancelador, id]);
+
       await connection.execute(
         'UPDATE horarios SET disponible = true WHERE id_horario = ?',
         [cita.id_horario]
       );
+
       await connection.execute(`
-        INSERT INTO auditoria_citas (id_cita, evento, detalle, actor_id_usuario, fecha_evento)
-        VALUES (?, 'cancelada', ?, ?, NOW())
-      `, [id, motivo_cancelacion || 'Cancelada', id_paciente]);
+      INSERT INTO auditoria_citas (id_cita, evento, detalle, actor_id_usuario, fecha_evento)
+      VALUES (?, 'cancelada', ?, ?, NOW())
+    `, [id, motivo_cancelacion || 'Cancelada', id_paciente]);
+
       await connection.commit();
+
+      // 🔹 Enviar correo al paciente
+      const [pacienteInfo] = await pool.execute(
+        `SELECT u.correo, u.nombre_completo 
+       FROM usuarios u 
+       WHERE u.id_usuario = ?`,
+        [id_paciente]
+      );
+
+      if (pacienteInfo.length > 0) {
+        await CancelcitascorreoCc(pacienteInfo[0].correo, pacienteInfo[0].nombre_completo);
+      }
+
       res.json({ success: true, message: 'Cita cancelada exitosamente' });
+
     } catch (error) {
       await connection.rollback();
       console.error('Error al cancelar cita:', error);
@@ -444,6 +465,7 @@ const pacienteController = {
       connection.release();
     }
   },
+
 
   obtenerEspecialidades: async (req, res) => {
     try {
@@ -455,23 +477,18 @@ const pacienteController = {
       ORDER BY e.nombre ASC
     `;
 
-      console.log('🔍 Obteniendo TODAS las especialidades activas...');
       const [rows] = await pool.execute(query);
 
-      console.log('📊 Especialidades encontradas:', rows.length);
-      console.log('📋 Datos:', rows);
 
       res.json({
         success: true,
         data: rows
       });
     } catch (error) {
-      console.error('❌ Error al obtener especialidades:', error);
 
       // Si el campo 'activa' no existe, intenta sin ese filtro
       if (error.message.includes('activa')) {
         try {
-          console.log('⚠️ Campo activa no existe, intentando sin filtro...');
           const querySimple = `
           SELECT e.id_especialidad, e.nombre, e.descripcion
           FROM especialidades e
@@ -484,7 +501,7 @@ const pacienteController = {
             data: rows
           });
         } catch (secondError) {
-          console.error('❌ Error en query alternativo:', secondError);
+         
         }
       }
 
