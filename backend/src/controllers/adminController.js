@@ -575,20 +575,21 @@ const adminController = {
             connection = await pool.getConnection();
 
             const [citaRows] = await connection.execute(`
-                SELECT 
-                    c.id_cita, 
-                    c.id_estado, 
-                    h.id_horario,
-                    h.fecha,
-                    up.nombre_completo as paciente,
-                    m.nombre_completo as medico
-                FROM citas c
-                INNER JOIN horarios h ON c.id_horario = h.id_horario
-                INNER JOIN pacientes p ON c.id_paciente = p.id_paciente
-                INNER JOIN usuarios up ON p.id_paciente = up.id_usuario
-                INNER JOIN medicos m ON h.id_medico = m.id_medico
-                WHERE c.id_cita = ?
-            `, [parseInt(id)]);
+            SELECT 
+                c.id_cita, 
+                c.id_estado, 
+                h.id_horario,
+                h.fecha,
+                up.nombre_completo as paciente,
+                up.correo as paciente_correo,   -- 🔹 Agregamos correo
+                m.nombre_completo as medico
+            FROM citas c
+            INNER JOIN horarios h ON c.id_horario = h.id_horario
+            INNER JOIN pacientes p ON c.id_paciente = p.id_paciente
+            INNER JOIN usuarios up ON p.id_paciente = up.id_usuario
+            INNER JOIN medicos m ON h.id_medico = m.id_medico
+            WHERE c.id_cita = ?
+        `, [parseInt(id)]);
 
             if (citaRows.length === 0) {
                 return res.status(404).json({
@@ -610,23 +611,28 @@ const adminController = {
 
             try {
                 await connection.execute(`
-                    UPDATE citas 
-                    SET 
-                        id_estado = 4, 
-                        cancelada_por = ?, 
-                        motivo_cancelacion = ?, 
-                        fecha_cancelacion = NOW(), 
-                        fecha_actualizacion = NOW()
-                    WHERE id_cita = ?
-                `, [cancelada_por, motivo.trim(), parseInt(id)]);
+                UPDATE citas 
+                SET 
+                    id_estado = 4, 
+                    cancelada_por = ?, 
+                    motivo_cancelacion = ?, 
+                    fecha_cancelacion = NOW(), 
+                    fecha_actualizacion = NOW()
+                WHERE id_cita = ?
+            `, [cancelada_por, motivo.trim(), parseInt(id)]);
 
                 await connection.execute(`
-                    UPDATE horarios 
-                    SET disponible = true 
-                    WHERE id_horario = ?
-                `, [cita.id_horario]);
+                UPDATE horarios 
+                SET disponible = true 
+                WHERE id_horario = ?
+            `, [cita.id_horario]);
 
                 await connection.commit();
+
+                // 🔹 Enviar correo al paciente
+                if (cita.paciente_correo) {
+                    await CancelcitascorreoCc(cita.paciente_correo, cita.paciente);
+                }
 
                 res.json({
                     success: true,
@@ -658,6 +664,7 @@ const adminController = {
             }
         }
     },
+
 
     getEstadosCita: async (req, res) => {
         try {

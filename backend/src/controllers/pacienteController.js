@@ -1,5 +1,5 @@
 const { pool } = require('../config/db');
-const { sendConfirmationcorreoCc, CancelcitascorreoCc } = require("../utils/mailer");
+const { sendConfirmationcorreoCc } = require("../utils/mailer");
 
 const pacienteController = {
   obtenerPerfil: async (req, res) => {
@@ -450,10 +450,6 @@ const pacienteController = {
        WHERE u.id_usuario = ?`,
         [id_paciente]
       );
-
-      if (pacienteInfo.length > 0) {
-        await CancelcitascorreoCc(pacienteInfo[0].correo, pacienteInfo[0].nombre_completo);
-      }
 
       res.json({ success: true, message: 'Cita cancelada exitosamente' });
 
