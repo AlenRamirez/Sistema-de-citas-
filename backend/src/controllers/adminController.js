@@ -178,7 +178,6 @@ const adminController = {
     createMedico: async (req, res) => {
         let connection;
         try {
-            console.log('Datos recibidos para crear médico:', req.body);
 
             const {
                 nombre_completo,
@@ -253,7 +252,7 @@ const adminController = {
             );
 
             const medicoId = result.insertId;
-            console.log('Médico creado con ID:', medicoId);
+            
 
             for (const idEspecialidad of especialidades) {
                 await connection.execute(
@@ -263,7 +262,7 @@ const adminController = {
             }
 
             await connection.commit();
-            console.log('Transacción completada exitosamente');
+     
 
             res.status(201).json({
                 success: true,
@@ -814,7 +813,7 @@ const adminController = {
     },
 
     getEspecialidades: async (req, res) => {
-        console.log('🔍 GET /admin/especialidades - Iniciando...');
+ 
         try {
             const [rows] = await pool.query(`
                 SELECT id_especialidad, nombre, descripcion
@@ -822,8 +821,6 @@ const adminController = {
                 ORDER BY nombre
             `);
 
-            console.log(`Especialidades obtenidas: ${rows.length}`);
-            console.log('Primeros registros:', rows.slice(0, 3));
 
             res.json({
                 success: true,
@@ -832,7 +829,6 @@ const adminController = {
             });
 
         } catch (error) {
-            console.error('❌ Error detallado en getEspecialidades:', error);
 
             res.status(500).json({
                 success: false,
@@ -843,8 +839,6 @@ const adminController = {
     },
 
     createEspecialidad: async (req, res) => {
-        console.log('🔍 POST /admin/especialidades - Iniciando...');
-        console.log('Body recibido:', req.body);
 
         try {
             const { nombre, descripcion } = req.body;
@@ -960,12 +954,6 @@ const adminController = {
         try {
             const { id } = req.params;
             const { estado, observaciones = '' } = req.body;
-
-            console.log('\n=== DEBUG updateCitaStatus ===');
-            console.log('ID recibido:', id);
-            console.log('Estado recibido:', estado);
-            console.log('observaciones recibidas:', observaciones);
-
             if (!id || isNaN(parseInt(id))) {
                 return res.status(400).json({
                     success: false,
@@ -984,7 +972,6 @@ const adminController = {
 
             // Estados disponibles
             const [estadosDisponibles] = await connection.execute('SELECT * FROM estados_cita');
-            console.log('Estados disponibles en BD:', estadosDisponibles);
 
             // Buscar cita
             const [citaRows] = await connection.execute(`
@@ -1007,7 +994,7 @@ const adminController = {
         `, [parseInt(id)]);
 
             if (citaRows.length === 0) {
-                console.log('⚠️ No se encontró la cita en la BD');
+              
                 return res.status(404).json({
                     success: false,
                     message: 'Cita no encontrada'
@@ -1015,7 +1002,7 @@ const adminController = {
             }
 
             const cita = citaRows[0];
-            console.log('Cita encontrada:', cita);
+
 
             // Buscar id_estado destino
             const [estadoTarget] = await connection.execute(
@@ -1029,7 +1016,7 @@ const adminController = {
             if (estadoTarget.length > 0) {
                 finalEstadoId = estadoTarget[0].id_estado;
             } else {
-                console.log(`⚠️ Estado ${estado} no encontrado directamente, probando variaciones...`);
+            
                 const nombreVariaciones = {
                     'confirmada': ['Confirmada', 'confirmada', 'CONFIRMADA'],
                     'realizada': ['Realizada', 'realizada', 'REALIZADA', 'Completada'],
@@ -1049,7 +1036,7 @@ const adminController = {
                 }
 
                 if (!nuevoEstadoId) {
-                    console.log('❌ No se encontró ningún id_estado válido');
+        
                     return res.status(400).json({
                         success: false,
                         message: `No se encontró el estado "${estado}" en la base de datos. Estados disponibles: ${estadosDisponibles.map(e => e.nombre).join(', ')}`
@@ -1058,7 +1045,7 @@ const adminController = {
                 finalEstadoId = nuevoEstadoId;
             }
 
-            console.log('ID de estado final a usar:', finalEstadoId);
+           
 
             // Validaciones de transición
             const estadosValidos = {
@@ -1067,9 +1054,8 @@ const adminController = {
                 'no_asistio': [1, 2, null]
             };
 
-            console.log('Estado actual de la cita:', cita.id_estado, cita.estado_actual);
             if (!estadosValidos[estado].includes(cita.id_estado)) {
-                console.log('❌ Transición inválida');
+              
                 return res.status(400).json({
                     success: false,
                     message: `No se puede cambiar a "${estado}" desde el estado actual "${cita.estado_actual || 'Sin estado'}"`
@@ -1096,7 +1082,6 @@ const adminController = {
 
                 await connection.commit();
 
-                console.log('✔️ UPDATE ejecutado correctamente');
 
                 const mensajeMap = {
                     'confirmada': 'Cita confirmada correctamente',

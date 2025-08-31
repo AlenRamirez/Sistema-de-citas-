@@ -1264,75 +1264,75 @@
     }
 
     // FUNCIÓN PARA EJECUTAR LA CANCELACIÓN
-    async function ejecutarCancelacionCita() {
-      try {
-        // Validaciones del formulario
-        const motivoCancelacion = document.getElementById('motivoCancelacion')?.value?.trim() || '';
-        const confirmCheckbox = document.getElementById('confirmCancellation');
-        const confirmarBtn = document.getElementById('confirmarCancelacionBtn');
+    // FUNCIÓN PARA EJECUTAR LA CANCELACIÓN
+      async function ejecutarCancelacionCita() {
+        try {
+          // Validaciones del formulario
+          const motivoCancelacion = document.getElementById('motivoCancelacion')?.value?.trim() || '';
+          const confirmCheckbox = document.getElementById('confirmCancellation');
+          const confirmarBtn = document.getElementById('confirmarCancelacionBtn');
 
-        if (!confirmCheckbox?.checked) {
-          showAlert('Debes confirmar que deseas cancelar la cita', 'warning');
-          return;
+          if (!confirmCheckbox?.checked) {
+            showAlert('Debes confirmar que deseas cancelar la cita', 'warning');
+            return;
+          }
+
+          if (motivoCancelacion.length < 10) {
+            showAlert('Por favor proporciona un motivo de al menos 10 caracteres', 'warning');
+            document.getElementById('motivoCancelacion')?.focus();
+            return;
+          }
+
+          // Deshabilitar botón y mostrar loading
+          if (confirmarBtn) {
+            confirmarBtn.disabled = true;
+            confirmarBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Cancelando...';
+          }
+
+          showLoading(true);
+
+          // FIX: Add '/pacientes' to the URL path to match backend route
+          const response = await fetch(`${API_BASE_URL}/pacientes/citas/${citaParaCancelar.id}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              motivo_cancelacion: motivoCancelacion
+            })
+          });
+
+          const result = await response.json();
+
+          if (response.ok && result.success) {
+            showAlert('Cita cancelada exitosamente. Se ha notificado al médico correspondiente.', 'success');
+
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('cancelModal'));
+            if (modal) modal.hide();
+
+            // Actualizar la interfaz (recargar citas)
+            setTimeout(() => {
+              // Recargar citas con filtros actuales
+              const filtros = obtenerFiltrosCitas();
+              cargarMisCitas(currentPage, filtros);
+            }, 1000);
+
+          } else {
+            showAlert(result.message || 'Error al cancelar la cita', 'danger');
+          }
+
+        } catch (error) {
+          console.error('Error al cancelar la cita:', error);
+          showAlert('Error de conexión. Por favor intenta nuevamente.', 'danger');
+        } finally {
+          // Restaurar botón
+          const confirmarBtn = document.getElementById('confirmarCancelacionBtn');
+          if (confirmarBtn) {
+            confirmarBtn.disabled = false;
+            confirmarBtn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Cancelar Cita';
+          }
+          showLoading(false);
         }
-
-        if (motivoCancelacion.length < 10) {
-          showAlert('Por favor proporciona un motivo de al menos 10 caracteres', 'warning');
-          document.getElementById('motivoCancelacion')?.focus();
-          return;
-        }
-
-        // Deshabilitar botón y mostrar loading
-        if (confirmarBtn) {
-          confirmarBtn.disabled = true;
-          confirmarBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Cancelando...';
-        }
-
-        showLoading(true);
-
-        // Realizar petición al backend
-        const response = await fetch(`${API_BASE_URL}/citas/${citaParaCancelar.id}`, {
-          method: 'DELETE',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            motivo_cancelacion: motivoCancelacion
-          })
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.success) {
-          showAlert('Cita cancelada exitosamente. Se ha notificado al médico correspondiente.', 'success');
-
-          // Cerrar modal
-          const modal = bootstrap.Modal.getInstance(document.getElementById('cancelModal'));
-          if (modal) modal.hide();
-
-          // Actualizar la interfaz (recargar citas)
-          setTimeout(() => {
-            // Recargar citas con filtros actuales
-            const filtros = obtenerFiltrosCitas();
-            cargarMisCitas(currentPage, filtros);
-          }, 1000);
-
-        } else {
-          showAlert(result.message || 'Error al cancelar la cita', 'danger');
-        }
-
-      } catch (error) {
-        console.error('Error al cancelar la cita:', error);
-        showAlert('Error de conexión. Por favor intenta nuevamente.', 'danger');
-      } finally {
-        // Restaurar botón
-        const confirmarBtn = document.getElementById('confirmarCancelacionBtn');
-        if (confirmarBtn) {
-          confirmarBtn.disabled = false;
-          confirmarBtn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Cancelar Cita';
-        }
-        showLoading(false);
       }
-    }
-
     // Actualizar estadísticas
     function actualizarEstadisticas(citas = []) {
       const activas = citas.filter(c => ['pendiente', 'confirmada'].includes(c.estado)).length;
@@ -1543,184 +1543,201 @@
     }
 
     // Buscar horarios disponibles
-    async function buscarHorariosDisponibles() {
-      try {
-        const fechaDesde = document.getElementById('fechaDesdeAgendar')?.value;
-        const fechaHasta = document.getElementById('fechaHastaAgendar')?.value;
+      async function buscarHorariosDisponibles() {
+    try {
+      const fechaDesde = document.getElementById('fechaDesdeAgendar')?.value;
+      const fechaHasta = document.getElementById('fechaHastaAgendar')?.value;
 
-        if (!fechaDesde || !fechaHasta) {
-          showAlert('Por favor selecciona las fechas de búsqueda', 'warning');
-          return;
-        }
-
-        if (new Date(fechaDesde) > new Date(fechaHasta)) {
-          showAlert('La fecha desde no puede ser mayor a la fecha hasta', 'warning');
-          return;
-        }
-
-        showLoading(true);
-
-        const especialidadSelect = document.getElementById('especialidadSelect');
-        const medicoSelect = document.getElementById('medicoSelect');
-
-        const filtros = {
-          fecha_desde: fechaDesde,
-          fecha_hasta: fechaHasta,
-          disponibles_solamente: true
-        };
-
-        if (especialidadSelect?.value) filtros.especialidad = especialidadSelect.value;
-        if (medicoSelect?.value) filtros.medico = medicoSelect.value;
-
-        const params = new URLSearchParams(filtros);
-        const url = `${API_BASE_URL}/pacientes/horarios-disponibles?${params}`;
-
-        const response = await fetch(url, {
-          headers: getAuthHeaders()
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Error ${response.status}: ${errorText}`);
-        }
-
-        const result = await response.json();
-
-        if (result.success) {
-          mostrarHorariosDisponibles(result.data);
-        } else {
-          showAlert(result.message || 'Error al buscar horarios', 'danger');
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        showAlert('Error al buscar horarios disponibles', 'danger');
-      } finally {
-        showLoading(false);
+      if (!fechaDesde || !fechaHasta) {
+        showAlert('Por favor selecciona las fechas de búsqueda', 'warning');
+        return;
       }
-    }
-
-    // Mostrar horarios disponibles
-    function mostrarHorariosDisponibles(horarios) {
-      const container = document.getElementById('horariosContainer');
-      const section = document.getElementById('horariosDisponibles');
-
-      if (!container || !section) return;
-
-      if (!horarios || horarios.length === 0) {
-        container.innerHTML = '<div class="alert alert-info">No se encontraron horarios disponibles con los criterios seleccionados</div>';
-        section.style.display = 'block';
+      if (new Date(fechaDesde) > new Date(fechaHasta)) {
+        showAlert('La fecha desde no puede ser mayor a la fecha hasta', 'warning');
         return;
       }
 
-      let html = '';
-      horarios.forEach(horario => {
-        const availabilityClass = horario.cupos_disponibles > 3 ? 'available' :
-          horario.cupos_disponibles > 0 ? 'limited' : 'unavailable';
+      showLoading(true);
 
-        if (horario.cupos_disponibles > 0) {
-          html += `
-            <div class="card mb-2 horario-card" onclick="seleccionarHorario(this, ${horario.id_horario}, ${JSON.stringify(horario).replace(/"/g, '&quot;')})">
-              <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 class="mb-1">Dr. ${horario.medico_nombre}</h6>
-                    <small class="text-muted">${horario.especialidades || 'Consulta General'}</small>
-                    <div class="mt-1">
-                      <i class="bi bi-calendar3 me-1"></i>${formatDate(horario.fecha)}
-                      <i class="bi bi-clock ms-3 me-1"></i>${horario.hora_inicio} - ${horario.hora_fin}
-                      ${horario.consultorio ? `<i class="bi bi-geo-alt ms-3 me-1"></i>${horario.consultorio}` : ''}
-                    </div>
-                    <div class="mt-1">
-                      <span class="availability-indicator ${availabilityClass}"></span>
-                      <small class="text-muted">${horario.cupos_disponibles} cupos disponibles</small>
-                    </div>
+      const especialidadSelect = document.getElementById('especialidadSelect');
+      const medicoSelect = document.getElementById('medicoSelect');
+
+      const filtros = {
+        fecha_desde: fechaDesde,
+        fecha_hasta: fechaHasta,
+        disponibles_solamente: true
+      };
+      if (especialidadSelect?.value) filtros.especialidad = especialidadSelect.value;
+      if (medicoSelect?.value) filtros.medico = medicoSelect.value;
+
+      const params = new URLSearchParams(filtros);
+      const url = `${API_BASE_URL}/pacientes/horarios-disponibles?${params}`;
+
+      const response = await fetch(url, { headers: getAuthHeaders() });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        mostrarHorariosDisponibles(result.data);
+      } else {
+        showAlert(result.message || 'Error al buscar horarios', 'danger');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showAlert('Error al buscar horarios disponibles', 'danger');
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  // Mostrar horarios disponibles
+  function mostrarHorariosDisponibles(horarios) {
+    const container = document.getElementById('horariosContainer');
+    const section = document.getElementById('horariosDisponibles');
+    if (!container || !section) return;
+
+    if (!horarios || horarios.length === 0) {
+      container.innerHTML = '<div class="alert alert-info">No se encontraron horarios disponibles con los criterios seleccionados</div>';
+      section.style.display = 'block';
+      // 👉 limpiamos selección y SÍ ocultamos el formulario en este caso
+      cancelarSeleccion({ ocultarFormulario: true });
+      return;
+    }
+
+    const horarioSeleccionadoActual = selectedHorarioData?.id_horario;
+    let horarioSeleccionadoSigueDisponible = false;
+
+    let html = '';
+    horarios.forEach(horario => {
+      const availabilityClass = horario.cupos_disponibles > 3 ? 'available'
+        : horario.cupos_disponibles > 0 ? 'limited' : 'unavailable';
+
+      if (horario.cupos_disponibles > 0) {
+        const isSelected = horarioSeleccionadoActual === horario.id_horario;
+        if (isSelected) horarioSeleccionadoSigueDisponible = true;
+
+        html += `
+          <div class="card mb-2 horario-card ${isSelected ? 'selected' : ''}"
+               onclick="seleccionarHorario(this, ${horario.id_horario}, ${JSON.stringify(horario).replace(/"/g, '&quot;')})">
+            <div class="card-body p-3">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-1">Dr. ${horario.medico_nombre}</h6>
+                  <small class="text-muted">${horario.especialidades || 'Consulta General'}</small>
+                  <div class="mt-1">
+                    <i class="bi bi-calendar3 me-1"></i>${formatDate(horario.fecha)}
+                    <i class="bi bi-clock ms-3 me-1"></i>${horario.hora_inicio} - ${horario.hora_fin}
+                    ${horario.consultorio ? `<i class="bi bi-geo-alt ms-3 me-1"></i>${horario.consultorio}` : ''}
                   </div>
-                  <div class="text-primary">
-                    <i class="bi bi-check-circle fs-5"></i>
+                  <div class="mt-1">
+                    <span class="availability-indicator ${availabilityClass}"></span>
+                    <small class="text-muted">${horario.cupos_disponibles} cupo${horario.cupos_disponibles > 1 ? 's' : ''} disponible${horario.cupos_disponibles > 1 ? 's' : ''}</small>
+                    ${horario.cupos_disponibles <= 3 && horario.cupos_disponibles > 0 ? '<span class="badge bg-warning ms-2">¡Pocos cupos!</span>' : ''}
                   </div>
+                </div>
+                <div class="text-primary">
+                  <i class="bi bi-check-circle fs-5"></i>
                 </div>
               </div>
             </div>
-          `;
-        }
-      });
+          </div>
+        `;
+      }
+    });
 
-      container.innerHTML = html || '<div class="alert alert-warning">No hay horarios con cupos disponibles</div>';
-      section.style.display = 'block';
+    container.innerHTML = html || '<div class="alert alert-warning">No hay horarios con cupos disponibles</div>';
+    section.style.display = 'block';
+
+    // Si el seleccionado ya no está disponible, limpiamos selección y (opcional) mantenemos el form visible
+    if (horarioSeleccionadoActual && !horarioSeleccionadoSigueDisponible) {
+      cancelarSeleccion({ ocultarFormulario: true }); // si prefieres mantener visible el form, pon false aquí
+      showAlert('El horario seleccionado ya no está disponible. Por favor selecciona otro.', 'warning');
+    } else if (horarioSeleccionadoSigueDisponible) {
+      selectedHorarioElement = container.querySelector('.horario-card.selected');
+    }
+  }
+
+  // Seleccionar horario
+  function seleccionarHorario(element, idHorario, horarioData) {
+    if (!horarioData.cupos_disponibles || horarioData.cupos_disponibles <= 0) {
+      showAlert('Este horario ya no tiene cupos disponibles.', 'warning');
+      return;
     }
 
-    // Seleccionar horario
-    function seleccionarHorario(element, idHorario, horarioData) {
-      // Remover selección anterior
-      if (selectedHorarioElement) {
-        selectedHorarioElement.classList.remove('selected');
-      }
-
-      // Seleccionar nuevo elemento
-      element.classList.add('selected');
-      selectedHorarioElement = element;
-      selectedHorarioData = horarioData;
-
-      // Guardar ID del horario
-      const horarioSeleccionado = document.getElementById('horarioSeleccionado');
-      if (horarioSeleccionado) {
-        horarioSeleccionado.value = idHorario;
-      }
-
-      // Mostrar resumen de la cita
-      mostrarResumenCita(horarioData);
-
-      // Mostrar formulario de confirmación
-      const citaConfirmForm = document.getElementById('citaConfirmForm');
-      if (citaConfirmForm) {
-        citaConfirmForm.style.display = 'block';
-        citaConfirmForm.scrollIntoView({ behavior: 'smooth' });
-      }
-
-      showAlert('Horario seleccionado. Complete los datos para confirmar.', 'success', 2000);
+    if (selectedHorarioElement) {
+      selectedHorarioElement.classList.remove('selected');
     }
 
-    // Mostrar resumen de la cita
-    function mostrarResumenCita(horario) {
-      const resumen = document.getElementById('resumenCita');
-      if (!resumen || !horario) return;
+    element.classList.add('selected');
+    selectedHorarioElement = element;
+    selectedHorarioData = horarioData;
 
-      resumen.innerHTML = `
-        <div class="row">
-          <div class="col-md-6">
-            <strong>Médico:</strong> Dr. ${horario.medico_nombre}<br>
-            <strong>Especialidad:</strong> ${horario.especialidades || 'Consulta General'}
-          </div>
-          <div class="col-md-6">
-            <strong>Fecha:</strong> ${formatDate(horario.fecha)}<br>
-            <strong>Hora:</strong> ${horario.hora_inicio} - ${horario.hora_fin}
-          </div>
+    const horarioSeleccionado = document.getElementById('horarioSeleccionado');
+    if (horarioSeleccionado) horarioSeleccionado.value = idHorario;
+
+    mostrarResumenCita(horarioData);
+
+    const citaConfirmForm = document.getElementById('citaConfirmForm');
+    if (citaConfirmForm) {
+      // 👉 aquí aseguramos que el formulario se muestre siempre que se seleccione un horario
+      citaConfirmForm.style.display = 'block';
+      citaConfirmForm.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    let mensaje = 'Horario seleccionado. Complete los datos para confirmar.';
+    if (horarioData.cupos_disponibles <= 3) {
+      mensaje = `Horario seleccionado (${horarioData.cupos_disponibles} cupo${horarioData.cupos_disponibles > 1 ? 's' : ''} restante${horarioData.cupos_disponibles > 1 ? 's' : ''}). Complete los datos rápidamente.`;
+    }
+    showAlert(mensaje, 'success', 3000);
+  }
+
+  // Resumen de la cita
+  function mostrarResumenCita(horario) {
+    const resumen = document.getElementById('resumenCita');
+    if (!resumen || !horario) return;
+
+    resumen.innerHTML = `
+      <div class="row">
+        <div class="col-md-6">
+          <strong>Médico:</strong> Dr. ${horario.medico_nombre}<br>
+          <strong>Especialidad:</strong> ${horario.especialidades || 'Consulta General'}
         </div>
-        ${horario.consultorio ? `<div class="mt-2"><strong>Consultorio:</strong> ${horario.consultorio}</div>` : ''}
-      `;
+        <div class="col-md-6">
+          <strong>Fecha:</strong> ${formatDate(horario.fecha)}<br>
+          <strong>Hora:</strong> ${horario.hora_inicio} - ${horario.hora_fin}
+        </div>
+      </div>
+      ${horario.consultorio ? `<div class="mt-2"><strong>Consultorio:</strong> ${horario.consultorio}</div>` : ''}
+    `;
+  }
+
+  // ✅ Cancelar selección SIN romper el formulario
+  function cancelarSeleccion({ ocultarFormulario = false } = {}) {
+    if (selectedHorarioElement) {
+      selectedHorarioElement.classList.remove('selected');
+      selectedHorarioElement = null;
     }
+    selectedHorarioData = null;
 
-    // Cancelar selección
-    function cancelarSeleccion() {
-      if (selectedHorarioElement) {
-        selectedHorarioElement.classList.remove('selected');
-        selectedHorarioElement = null;
-      }
-      selectedHorarioData = null;
+    const horarioSeleccionado = document.getElementById('horarioSeleccionado');
+    if (horarioSeleccionado) horarioSeleccionado.value = '';
 
-      const horarioSeleccionado = document.getElementById('horarioSeleccionado');
-      const citaConfirmForm = document.getElementById('citaConfirmForm');
-      const motivoCita = document.getElementById('motivoCita');
-      const aceptarTerminos = document.getElementById('aceptarTerminos');
+    const resumen = document.getElementById('resumenCita');
+    if (resumen) resumen.innerHTML = '';
 
-      if (horarioSeleccionado) horarioSeleccionado.value = '';
-      if (citaConfirmForm) citaConfirmForm.style.display = 'none';
-      if (motivoCita) motivoCita.value = '';
-      if (aceptarTerminos) aceptarTerminos.checked = false;
+    const citaConfirmForm = document.getElementById('citaConfirmForm');
+    if (citaConfirmForm) {
+      // Si solo limpiamos, lo dejamos visible (por si tu layout lo necesita),
+      // pero si el caller lo pide, lo ocultamos.
+      citaConfirmForm.style.display = ocultarFormulario ? 'none' : 'block';
     }
+  }
 
-    // Confirmar agendar cita
-    async function confirmarAgendarCita() {
+  // Confirmar agendar cita
+  async function confirmarAgendarCita() {
       const horarioSeleccionado = document.getElementById('horarioSeleccionado');
       const motivoCita = document.getElementById('motivoCita');
       const aceptarTerminos = document.getElementById('aceptarTerminos');
@@ -1734,13 +1751,11 @@
         showAlert('Por favor selecciona un horario', 'warning');
         return;
       }
-
       if (!motivo || motivo.trim().length < 10) {
         showAlert('Por favor describe el motivo de la consulta (mínimo 10 caracteres)', 'warning');
         motivoCita?.focus();
         return;
       }
-
       if (!terminos) {
         showAlert('Debes aceptar los términos y condiciones', 'warning');
         return;
@@ -1751,8 +1766,9 @@
         confirmarBtn.disabled = true;
         confirmarBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
 
+        // FIX: Change id_horario to horarioId to match backend expectation
         const requestData = {
-          id_horario: parseInt(idHorario),
+          horarioId: parseInt(idHorario),  // ← Changed from id_horario to horarioId
           motivo: motivo.trim()
         };
 
@@ -1767,18 +1783,19 @@
         if (response.ok && result.success) {
           showAlert('Cita agendada exitosamente. Se ha enviado confirmación por correo electrónico.', 'success');
 
-          // Limpiar formulario
-          cancelarSeleccion();
+          // Limpia y ahora SÍ oculta el formulario tras agendar
+          cancelarSeleccion({ ocultarFormulario: true });
 
-          // Ocultar sección de horarios
+          // Refresca horarios para reflejar cupos
+          await buscarHorariosDisponibles();
+
+          // (Opcional) ocultar lista de horarios
           const horariosDisponibles = document.getElementById('horariosDisponibles');
           if (horariosDisponibles) horariosDisponibles.style.display = 'none';
 
-          // Limpiar campos de búsqueda
+          // Reset de filtros/fechas
           const today = new Date().toISOString().split('T')[0];
-          const futureDate = new Date();
-          futureDate.setDate(futureDate.getDate() + 30);
-
+          const futureDate = new Date(); futureDate.setDate(futureDate.getDate() + 30);
           document.getElementById('fechaDesdeAgendar').value = today;
           document.getElementById('fechaHastaAgendar').value = futureDate.toISOString().split('T')[0];
 
@@ -1787,17 +1804,22 @@
           if (especialidadSelect) especialidadSelect.value = '';
           if (medicoSelect) medicoSelect.value = '';
 
-          // Recargar citas si estamos en esa sección
           const citasSection = document.getElementById('mis-citas');
           if (citasSection && citasSection.classList.contains('active')) {
             cargarMisCitas(1);
           }
         } else {
-          showAlert(result.message || 'Error al agendar la cita', 'danger');
+          if (response.status === 409) {
+            showAlert('Este horario ya no está disponible. Por favor selecciona otro horario.', 'warning');
+            await buscarHorariosDisponibles();
+          } else {
+            showAlert(result.message || 'Error al agendar la cita', 'danger');
+          }
         }
       } catch (error) {
         console.error('Error:', error);
         showAlert(`Error al agendar la cita: ${error.message}`, 'danger');
+        try { await buscarHorariosDisponibles(); } catch (e) { console.error('Error al recargar horarios:', e); }
       } finally {
         showLoading(false);
         confirmarBtn.disabled = false;
@@ -1805,78 +1827,72 @@
       }
     }
 
-    // Cancelar cita
-    function cancelarCita(idCita) {
-      const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
-      document.getElementById('confirmModalTitle').textContent = 'Cancelar Cita';
-      document.getElementById('confirmModalBody').innerHTML = `
-        <p><strong>Atención:</strong> Una vez cancelada, esta cita no se puede recuperar.</p>
-        <p>¿Está seguro que desea cancelar esta cita?</p>
-        <div class="mb-3">
-          <label for="motivoCancelacion" class="form-label">Motivo de cancelación (opcional):</label>
-          <textarea class="form-control" id="motivoCancelacion" rows="3" placeholder="Ingrese el motivo de la cancelación..."></textarea>
-        </div>
-      `;
+  // Cancelar cita (modal de confirmación)
+  function cancelarCita(idCita) {
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    document.getElementById('confirmModalTitle').textContent = 'Cancelar Cita';
+    document.getElementById('confirmModalBody').innerHTML = `
+      <p><strong>Atención:</strong> Una vez cancelada, esta cita no se puede recuperar.</p>
+      <p>¿Está seguro que desea cancelar esta cita?</p>
+      <div class="mb-3">
+        <label for="motivoCancelacion" class="form-label">Motivo de cancelación (opcional):</label>
+        <textarea class="form-control" id="motivoCancelacion" rows="3" placeholder="Ingrese el motivo de la cancelación..."></textarea>
+      </div>
+    `;
 
-      document.getElementById('confirmModalBtn').onclick = async () => {
-        modal.hide();
-        await ejecutarCancelacionCita(idCita);
-      };
+    document.getElementById('confirmModalBtn').onclick = async () => {
+      modal.hide();
+      await ejecutarCancelacionCita(idCita);
+    };
 
-      modal.show();
-    }
+    modal.show();
+  }
 
-    // Ejecutar cancelación de cita
-    async function ejecutarCancelacionCita(idCita) {
-        try {
-          showLoading(true);
-          const motivoCancelacion = document.getElementById('motivoCancelacion')?.value || '';
+  // Ejecutar cancelación de cita
+  async function ejecutarCancelacionCita(idCita) {
+    try {
+      showLoading(true);
+      const motivoCancelacion = document.getElementById('motivoCancelacion')?.value || '';
+      const url = `${API_BASE_URL}/pacientes/citas/${idCita}`;
+      console.log("DELETE URL:", url);
 
-          const url = `${API_BASE_URL}/pacientes/citas/${idCita}`;
-          console.log("DELETE URL:", url);
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ motivo_cancelacion: motivoCancelacion })
+      });
 
-          const response = await fetch(url, {
-            method: 'DELETE',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ motivo_cancelacion: motivoCancelacion })
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Error ${response.status}: ${errorText}`);
-          }
-
-          const result = await response.json();
-
-          if (result.success) {
-            showAlert('Cita cancelada exitosamente.', 'success');
-            cargarMisCitas(currentPage, obtenerFiltrosCitas());
-          } else {
-            showAlert(result.message || 'Error al cancelar la cita.', 'danger');
-          }
-        } catch (error) {
-          console.error('Error al cancelar la cita:', error);
-          showAlert(error.message || 'Ocurrió un error en la conexión.', 'danger');
-        } finally {
-          showLoading(false);
-        }
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error ${response.status}: ${errorText}`);
       }
 
+      const result = await response.json();
+      if (result.success) {
+        showAlert('Cita cancelada exitosamente.', 'success');
+        cargarMisCitas(currentPage, obtenerFiltrosCitas());
+      } else {
+        showAlert(result.message || 'Error al cancelar la cita.', 'danger');
+      }
+    } catch (error) {
+      console.error('Error al cancelar la cita:', error);
+      showAlert(error.message || 'Ocurrió un error en la conexión.', 'danger');
+    } finally {
+      showLoading(false);
+    }
+  }
 
     // SOLUCIÓN 1: Modificar descargarComprobante para obtener datos del paciente
     async function descargarComprobante(idCita) {
       // Añade esto al inicio de tu función generarPDFComprobante
       const nombreDelDOM = document.getElementById('nombrePaciente')?.textContent ||
         document.getElementById('nombreDisplay')?.textContent;
-      console.log('Nombre encontrado en DOM:', nombreDelDOM);
-      console.log('🟡 INICIO - descargarComprobante llamada con ID:', idCita);
 
       try {
         showLoading(true);
 
         // 1. Obtener datos de la cita
         const urlCita = `${API_BASE_URL}/pacientes/citas/${idCita}`;
-        console.log('🟡 Obteniendo datos de la cita:', urlCita);
 
         const responseCita = await fetch(urlCita, {
           headers: getAuthHeaders()
@@ -1887,16 +1903,15 @@
         }
 
         const resultCita = await responseCita.json();
-        console.log('🟢 Datos de la cita obtenidos:', resultCita);
+ 
 
         if (!resultCita.success) {
           throw new Error(resultCita.message || 'Error al obtener datos de la cita');
         }
 
         // 2. Obtener datos del paciente usando la función que ya tienes
-        console.log('🟡 Obteniendo datos del paciente...');
+
         const datosPaciente = await obtenerDatosPaciente();
-        console.log('🟢 Datos del paciente obtenidos:', datosPaciente);
 
         // 3. Combinar datos de cita y paciente
         const datosCompletos = {
@@ -1906,8 +1921,6 @@
           paciente_telefono: datosPaciente?.telefono || 'N/A',
           paciente_correo: datosPaciente?.correo || 'N/A'
         };
-
-        console.log('🟢 Datos completos para PDF:', datosCompletos);
 
         // 4. Generar PDF
         generarPDFComprobante(datosCompletos);
@@ -1923,11 +1936,10 @@
     // FUNCIÓN AUXILIAR: Obtener datos del paciente actual
     async function obtenerDatosPaciente() {
       try {
-        console.log('🟡 Obteniendo datos del paciente desde API...');
-        console.log('🟡 currentUser.id_usuario:', currentUser?.id_usuario);
+      
 
         if (!currentUser || !currentUser.id_usuario) {
-          console.log('🟡 No hay currentUser, intentando obtener del DOM...');
+;
           return obtenerDatosPacienteDelDOM();
         }
 
@@ -1936,29 +1948,25 @@
         });
 
         if (!response.ok) {
-          console.log('🟡 Error en API, intentando obtener del DOM...');
           return obtenerDatosPacienteDelDOM();
         }
 
         const result = await response.json();
         if (result.success) {
-          console.log('🟢 Datos del paciente desde API:', result.data);
           return result.data;
         }
 
-        console.log('🟡 API no exitosa, intentando obtener del DOM...');
         return obtenerDatosPacienteDelDOM();
 
       } catch (error) {
-        console.error('❌ Error al obtener datos del paciente desde API:', error);
-        console.log('🟡 Intentando obtener del DOM como fallback...');
+
         return obtenerDatosPacienteDelDOM();
       }
     }
 
     // FUNCIÓN AUXILIAR: Obtener datos del DOM (fallback)
     function obtenerDatosPacienteDelDOM() {
-      console.log('🟡 Obteniendo datos del paciente desde DOM...');
+  
 
       const datos = {
         nombre_completo: document.getElementById('nombreDisplay')?.textContent?.trim() ||
@@ -1983,14 +1991,11 @@
         }
       });
 
-      console.log('🟢 Datos del paciente desde DOM:', datos);
       return datos;
     }
 
     // SOLUCIÓN 2: Función PDF mejorada
     function generarPDFComprobante(cita) {
-      console.log('🟦 INICIO - generarPDFComprobante');
-      console.log('🟦 Datos recibidos:', cita);
 
       try {
         if (typeof window.jspdf === 'undefined') {
@@ -2040,14 +2045,6 @@
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
 
-        // DEBUG: Mostrar todos los campos disponibles
-        console.log('🟦 Campos disponibles en cita:', Object.keys(cita));
-        console.log('🟦 Buscando nombre en:', {
-          paciente_nombre: cita.paciente_nombre,
-          nombre_paciente: cita.nombre_paciente,
-          nombre_completo: cita.nombre_completo,
-          currentUser_nombre: currentUser?.nombre_completo
-        });
 
         // Obtener datos del paciente con múltiples fallbacks
         const nombrePaciente = cita.paciente_nombre ||
@@ -2078,13 +2075,7 @@
           currentUser?.correo ||
           'N/A';
 
-        console.log('🟦 Datos finales del paciente:', {
-          nombre: nombrePaciente,
-          documento: documentoPaciente,
-          telefono: telefonoPaciente,
-          correo: correoPaciente
-        });
-
+       
         // Mostrar información del paciente
         doc.text(`Nombre: ${nombrePaciente}`, 20, yPosition);
         yPosition += 6;
@@ -2135,8 +2126,7 @@
         const fileName = `comprobante-cita-${cita.id_cita || 'sin-id'}-${cita.fecha || 'sin-fecha'}.pdf`;
         doc.save(fileName);
 
-        console.log('🟢 PDF generado exitosamente');
-        showAlert('Comprobante descargado exitosamente', 'success', 3000);
+      
 
       } catch (error) {
         console.error('❌ Error en generarPDFComprobante:', error);
@@ -2146,7 +2136,6 @@
 
     // SOLUCIÓN 3: Función de emergencia - usar solo datos del DOM/currentUser
     function generarPDFComprobanteSimple(cita) {
-      console.log('🟦 Generando PDF con datos básicos...');
 
       try {
         const { jsPDF } = window.jspdf;
@@ -2169,7 +2158,7 @@
         const nombre = currentUser?.nombre_completo || 'USUARIO ACTUAL';
         const documento = currentUser?.documento || 'DOCUMENTO NO DISPONIBLE';
 
-        console.log('🟦 Usando datos de currentUser:', { nombre, documento });
+
 
         doc.text(`Nombre: ${nombre}`, 20, yPosition);
         yPosition += 6;
@@ -2206,15 +2195,15 @@
 
     // Event listeners y inicialización
     document.addEventListener('DOMContentLoaded', function () {
-      console.log('DOM loaded, iniciando aplicación...');
+
 
       // Verificar autenticación
       if (!verificarAuth()) {
-        console.log('Usuario no autenticado, redirigiendo...');
+
         return;
       }
 
-      console.log('Usuario autenticado, configurando aplicación...');
+
 
       // Configurar fechas mínimas
       const today = new Date().toISOString().split('T')[0];
@@ -2250,7 +2239,6 @@
           e.preventDefault();
 
           const section = this.dataset.section;
-          console.log('Navegando a sección:', section);
 
           // Actualizar navegación
           document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
@@ -2340,7 +2328,6 @@
       }
 
       // Cargar datos iniciales
-      console.log('Cargando datos iniciales...');
       cargarPerfil();
       cargarMisCitas(1);
       cargarEspecialidades();
