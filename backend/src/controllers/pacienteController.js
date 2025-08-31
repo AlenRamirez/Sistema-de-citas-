@@ -50,6 +50,7 @@ const pacienteController = {
       const requestedId = parseInt(id);
       const userId = req.user.id_usuario;
       const userRole = req.user.rol;
+
       // Verificación de permisos
       if (!(userRole === 'admin' || (userRole === 'paciente' && requestedId === userId))) {
         return res.status(403).json({
@@ -57,31 +58,91 @@ const pacienteController = {
           message: 'No tienes permisos para actualizar este perfil'
         });
       }
+
       const { nombre_completo, telefono, fecha_nacimiento, sexo, eps, contacto_emergencia, telefono_emergencia, alergias } = req.body;
+
       if (!nombre_completo || nombre_completo.trim().length === 0) {
         return res.status(400).json({
           success: false,
           message: 'El nombre completo es requerido'
         });
       }
+
+      // VALIDACIÓN DE FECHA DE NACIMIENTO - SOLO SI VIENE EN EL REQUEST
+      if (fecha_nacimiento) {
+        const fechaNac = new Date(fecha_nacimiento);
+        const hoy = new Date();
+
+        // Verificar que la fecha sea válida
+        if (isNaN(fechaNac.getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: 'Fecha de nacimiento inválida'
+          });
+        }
+
+        // Verificar que no sea una fecha futura
+        if (fechaNac > hoy) {
+          return res.status(400).json({
+            success: false,
+            message: 'La fecha de nacimiento no puede ser en el futuro'
+          });
+        }
+
+        // Calcular edad
+        let edad = hoy.getFullYear() - fechaNac.getFullYear();
+        const mes = hoy.getMonth() - fechaNac.getMonth();
+
+        if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNac.getDate())) {
+          edad--;
+        }
+
+        // Verificar edad mínima (18 años)
+        if (edad < 18) {
+          return res.status(400).json({
+            success: false,
+            message: 'Debes ser mayor de 18 años para usar este sistema'
+          });
+        }
+
+        // Verificar edad máxima razonable (120 años)
+        if (edad > 120) {
+          return res.status(400).json({
+            success: false,
+            message: 'Por favor verifica la fecha de nacimiento ingresada'
+          });
+        }
+
+        // Verificar año mínimo razonable (1900)
+        if (fechaNac.getFullYear() < 1900) {
+          return res.status(400).json({
+            success: false,
+            message: 'Por favor ingresa un año válido (desde 1900)'
+          });
+        }
+      }
+
       const toNullIfUndefined = (value) => value !== undefined ? value : null;
+
       // Actualizar usuarios
       const updateUserQuery = `
-        UPDATE usuarios 
-        SET nombre_completo = ?, telefono = ?
-        WHERE id_usuario = ?
-      `;
+      UPDATE usuarios 
+      SET nombre_completo = ?, telefono = ?
+      WHERE id_usuario = ?
+    `;
       await pool.execute(updateUserQuery, [nombre_completo, telefono, requestedId]);
-      // Actualizar o insertar pacientes - FIX: Parámetros correctos
+
+      // Actualizar o insertar pacientes - TU CÓDIGO ORIGINAL
       if (fecha_nacimiento !== undefined || sexo !== undefined || eps !== undefined || contacto_emergencia !== undefined || telefono_emergencia !== undefined || alergias !== undefined) {
         const checkPatientQuery = `SELECT id_paciente FROM pacientes WHERE id_paciente = ?`;
         const [patientExists] = await pool.execute(checkPatientQuery, [requestedId]);
+
         if (patientExists.length > 0) {
           const updatePatientQuery = `
-            UPDATE pacientes
-            SET fecha_nacimiento = ?, sexo = ?, eps = ?, contacto_emergencia = ?, telefono_emergencia = ?, alergias = ?
-            WHERE id_paciente = ?
-          `;
+          UPDATE pacientes
+          SET fecha_nacimiento = ?, sexo = ?, eps = ?, contacto_emergencia = ?, telefono_emergencia = ?, alergias = ?
+          WHERE id_paciente = ?
+        `;
           await pool.execute(updatePatientQuery, [
             toNullIfUndefined(fecha_nacimiento),
             toNullIfUndefined(sexo),
@@ -92,11 +153,10 @@ const pacienteController = {
             requestedId
           ]);
         } else {
-          // FIX: Query INSERT corregido con todos los parámetros
           const insertPatientQuery = `
-            INSERT INTO pacientes (id_paciente, fecha_nacimiento, sexo, eps, contacto_emergencia, telefono_emergencia, alergias)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `;
+          INSERT INTO pacientes (id_paciente, fecha_nacimiento, sexo, eps, contacto_emergencia, telefono_emergencia, alergias)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
           await pool.execute(insertPatientQuery, [
             requestedId,
             toNullIfUndefined(fecha_nacimiento),
@@ -108,6 +168,7 @@ const pacienteController = {
           ]);
         }
       }
+
       res.json({
         success: true,
         message: 'Perfil actualizado correctamente'
@@ -120,6 +181,7 @@ const pacienteController = {
       });
     }
   },
+  
   obtenerMisCitas: async (req, res) => {
     try {
       const id_paciente = req.user.id_usuario;

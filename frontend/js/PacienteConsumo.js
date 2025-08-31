@@ -183,57 +183,214 @@ async function cargarPerfil() {
 }
 
 // También modifica la función actualizarPerfil para actualizar el avatar después de guardar cambios
-async function actualizarPerfil() {
+actualizarPerfil: async (req, res) => {
   try {
-    showLoading(true);
+    const { id } = req.params;
+    const requestedId = parseInt(id);
+    const userId = req.user.id_usuario;
+    const userRole = req.user.rol;
 
-    const data = {
-      nombre_completo: document.getElementById('nombreInput')?.value,
-      telefono: document.getElementById('telefonoInput')?.value,
-      fecha_nacimiento: document.getElementById('fechaInput')?.value || undefined,
-      sexo: document.getElementById('sexoInput')?.value || undefined,
-      eps: document.getElementById('epsInput')?.value || undefined,
-      contacto_emergencia: document.getElementById('contactoeInput')?.value || undefined,
-      telefono_emergencia: document.getElementById('telefonoeInput')?.value || undefined,
-      alergias: document.getElementById('alergiasInput')?.value || undefined
-    };
+    // Verificación de permisos
+    if (!(userRole === 'admin' || (userRole === 'paciente' && requestedId === userId))) {
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes permisos para actualizar este perfil'
+      });
+    }
 
-    const response = await fetch(`${API_BASE_URL}/pacientes/perfil/${currentUser.id_usuario}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data)
-    });
+    const {
+      nombre_completo,
+      telefono,
+      fecha_nacimiento,
+      sexo,
+      eps,
+      contacto_emergencia,
+      telefono_emergencia,
+      alergias
+    } = req.body;
 
-    const result = await response.json();
+    if (!nombre_completo || nombre_completo.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'El nombre completo es requerido'
+      });
+    }
 
-    if (result.success) {
-      showAlert('Perfil actualizado correctamente', 'success');
+    // VALIDACIÓN DE FECHA DE NACIMIENTO INLINE
+    if (fecha_nacimiento !== undefined && fecha_nacimiento) {
+      const fechaNac = new Date(fecha_nacimiento);
+      const hoy = new Date();
 
-      // *** NUEVA LÍNEA: Actualizar avatar inmediatamente con el nuevo nombre ***
-      actualizarAvatar(data.nombre_completo);
-
-      // Actualizar nombre en sidebar también
-      const nombrePaciente = document.getElementById('nombrePaciente');
-      if (nombrePaciente && data.nombre_completo) {
-        nombrePaciente.textContent = data.nombre_completo;
+      // Verificar que la fecha sea válida
+      if (isNaN(fechaNac.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Fecha de nacimiento inválida'
+        });
       }
 
-      await cargarPerfil();
-      const editForm = document.getElementById('editForm');
-      const editarBtn = document.getElementById('editarBtn');
-      if (editForm) editForm.style.display = 'none';
-      if (editarBtn) editarBtn.style.display = 'block';
-    } else {
-      showAlert(result.message || 'Error al actualizar perfil', 'danger');
+      // Verificar que no sea una fecha futura
+      if (fechaNac > hoy) {
+        return res.status(400).json({
+          success: false,
+          message: 'La fecha de nacimiento no puede ser en el futuro'
+        });
+      }
+
+      // Calcular edad
+      let edad = hoy.getFullYear() - fechaNac.getFullYear();
+      const mes = hoy.getMonth() - fechaNac.getMonth();
+
+      if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNac.getDate())) {
+        edad--;
+      }
+
+      // Verificar edad mínima (18 años)
+      if (edad < 18) {
+        return res.status(400).json({
+          success: false,
+          message: 'Debes ser mayor de 18 años para usar este sistema'
+        });
+      }
+
+      // Verificar edad máxima razonable (120 años)
+      if (edad > 120) {
+        return res.status(400).json({
+          success: false,
+          message: 'Por favor verifica la fecha de nacimiento ingresada'
+        });
+      }
+
+      // Verificar año mínimo razonable (1900)
+      if (fechaNac.getFullYear() < 1900) {
+        return res.status(400).json({
+          success: false,
+          message: 'Por favor ingresa un año válido (desde 1900)'
+        });
+      }
     }
+
+    // Actualizar usuarios - SOLO SI LOS CAMPOS ESTÁN PRESENTES
+    const userFieldsToUpdate = [];
+    const userValues = [];
+
+    if (nombre_completo !== undefined) {
+      userFieldsToUpdate.push('nombre_completo = ?');
+      userValues.push(nombre_completo);
+    }
+    if (telefono !== undefined) {
+      userFieldsToUpdate.push('telefono = ?');
+      userValues.push(telefono);
+    }
+
+    if (userFieldsToUpdate.length > 0) {
+      const updateUserQuery = `
+        UPDATE usuarios 
+        SET ${userFieldsToUpdate.join(', ')}
+        WHERE id_usuario = ?
+      `;
+      await pool.execute(updateUserQuery, [...userValues, requestedId]);
+    }
+
+    // Actualizar pacientes - SOLO CAMPOS PRESENTES
+    const patientFieldsToUpdate = [];
+    const patientValues = [];
+
+    if (fecha_nacimiento !== undefined) {
+      patientFieldsToUpdate.push('fecha_nacimiento = ?');
+      patientValues.push(fecha_nacimiento || null);
+    }
+    if (sexo !== undefined) {
+      patientFieldsToUpdate.push('sexo = ?');
+      patientValues.push(sexo || null);
+    }
+    if (eps !== undefined) {
+      patientFieldsToUpdate.push('eps = ?');
+      patientValues.push(eps || null);
+    }
+    if (contacto_emergencia !== undefined) {
+      patientFieldsToUpdate.push('contacto_emergencia = ?');
+      patientValues.push(contacto_emergencia || null);
+    }
+    if (telefono_emergencia !== undefined) {
+      patientFieldsToUpdate.push('telefono_emergencia = ?');
+      patientValues.push(telefono_emergencia || null);
+    }
+    if (alergias !== undefined) {
+      patientFieldsToUpdate.push('alergias = ?');
+      patientValues.push(alergias || null);
+    }
+
+    // Solo actualizar tabla pacientes si hay campos para actualizar
+    if (patientFieldsToUpdate.length > 0) {
+      const checkPatientQuery = `SELECT id_paciente FROM pacientes WHERE id_paciente = ?`;
+      const [patientExists] = await pool.execute(checkPatientQuery, [requestedId]);
+
+      if (patientExists.length > 0) {
+        // Actualizar registro existente
+        const updatePatientQuery = `
+          UPDATE pacientes
+          SET ${patientFieldsToUpdate.join(', ')}
+          WHERE id_paciente = ?
+        `;
+        await pool.execute(updatePatientQuery, [...patientValues, requestedId]);
+      } else {
+        // Crear nuevo registro con solo los campos que vienen en el request
+        const insertFields = ['id_paciente'];
+        const insertValues = [requestedId];
+        const insertPlaceholders = ['?'];
+
+        if (fecha_nacimiento !== undefined) {
+          insertFields.push('fecha_nacimiento');
+          insertValues.push(fecha_nacimiento || null);
+          insertPlaceholders.push('?');
+        }
+        if (sexo !== undefined) {
+          insertFields.push('sexo');
+          insertValues.push(sexo || null);
+          insertPlaceholders.push('?');
+        }
+        if (eps !== undefined) {
+          insertFields.push('eps');
+          insertValues.push(eps || null);
+          insertPlaceholders.push('?');
+        }
+        if (contacto_emergencia !== undefined) {
+          insertFields.push('contacto_emergencia');
+          insertValues.push(contacto_emergencia || null);
+          insertPlaceholders.push('?');
+        }
+        if (telefono_emergencia !== undefined) {
+          insertFields.push('telefono_emergencia');
+          insertValues.push(telefono_emergencia || null);
+          insertPlaceholders.push('?');
+        }
+        if (alergias !== undefined) {
+          insertFields.push('alergias');
+          insertValues.push(alergias || null);
+          insertPlaceholders.push('?');
+        }
+
+        const insertPatientQuery = `
+          INSERT INTO pacientes (${insertFields.join(', ')})
+          VALUES (${insertPlaceholders.join(', ')})
+        `;
+        await pool.execute(insertPatientQuery, insertValues);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Perfil actualizado correctamente'
+    });
   } catch (error) {
-    console.error('Error:', error);
-    showAlert('Error al actualizar perfil', 'danger');
-  } finally {
-    showLoading(false);
+    console.error('Error al actualizar perfil:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
+    });
   }
 }
-
 // Cargar mis citas
 async function cargarMisCitas(page = 1, filtros = {}) {
   try {

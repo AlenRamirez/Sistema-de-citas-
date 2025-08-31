@@ -17,25 +17,37 @@ const isAdmin = (req, res, next) => {
 router.use(authMiddleware);
 router.use(isAdmin);
 
-// Rutas existentes del admin
+// DASHBOARD
 router.get('/dashboard', adminController.getDashboard);
+
+// GESTIÓN DE USUARIOS
 router.get('/usuarios', adminController.getAllUsers);
 router.put('/usuarios/:id/estado', adminController.toggleUserStatus);
 router.delete('/usuarios/:id', adminController.deleteUser);
-router.post('/medicos', adminController.createMedico);
 
-// Rutas de citas - usando adminController
+// CU-04: GESTIÓN DE ESPECIALIDADES DEL MÉDICO
+router.get('/medicos/:medicoId/especialidades', adminController.getMedicoEspecialidades);
+router.put('/medicos/:medicoId/especialidades', adminController.updateMedicoEspecialidades);
+
+// GESTIÓN DE CITAS
 router.get('/citas', adminController.getAllCitas);
 router.get('/citas/estados', adminController.getEstadosCita);
 
-// Rutas para cambiar estados
-router.put('/citas/:id/status', adminController.updateCitaStatus);     // Para confirmar, realizar, no_asistio
-router.put('/citas/:id/cancel', adminController.cancelCita);           // Para cancelar (endpoint específico)
+// CU-08: Cancelar cita
+router.put('/citas/:id/cancel', adminController.cancelCita);
 
-// Rutas de especialidades
+// CU-10: Registrar atención (marcar realizada) / No asistencia
+router.put('/citas/:id/status', adminController.updateCitaStatus);
+
+// GESTIÓN DE ESPECIALIDADES
 router.get('/especialidades', adminController.getEspecialidades);
 router.post('/especialidades', adminController.createEspecialidad);
 
+// GESTIÓN DE ESTADOS DE CITA
+router.post('/estados-cita', adminController.createEstadoCita);
+router.delete('/estados-cita/:id', adminController.deleteEstadoCita);
+
+// CU-12: REPORTES OPERATIVOS
 /**
  * @route GET /api/admin/reportes
  * @desc Obtener reportes según tipo especificado
