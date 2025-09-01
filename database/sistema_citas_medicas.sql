@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 21-08-2025 a las 00:22:07
+-- Tiempo de generación: 01-09-2025 a las 21:36:19
 -- Versión del servidor: 10.4.32-MariaDB
--- Versión de PHP: 8.0.30
+-- Versión de PHP: 8.1.25
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -60,13 +60,6 @@ CREATE TABLE `auditoria_citas` (
   `fecha_evento` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Volcado de datos para la tabla `auditoria_citas`
---
-
-INSERT INTO `auditoria_citas` (`id_auditoria`, `id_cita`, `evento`, `estado_anterior`, `estado_nuevo`, `detalle`, `actor_id_usuario`, `ip_address`, `fecha_evento`) VALUES
-(1, 1, 'creada', NULL, 1, 'Cita creada exitosamente', NULL, NULL, '2025-08-19 21:27:00');
-
 -- --------------------------------------------------------
 
 --
@@ -78,79 +71,15 @@ CREATE TABLE `citas` (
   `id_paciente` bigint(20) NOT NULL,
   `id_horario` bigint(20) NOT NULL,
   `id_estado` smallint(6) NOT NULL DEFAULT 1,
-  `motivo` varchar(500) DEFAULT NULL,
+  `motivo` text DEFAULT NULL,
   `observaciones` text DEFAULT NULL,
   `costo` decimal(10,2) DEFAULT 0.00,
   `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp(),
   `fecha_actualizacion` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `cancelada_por` enum('paciente','admin') DEFAULT NULL,
-  `motivo_cancelacion` varchar(255) DEFAULT NULL,
+  `cancelada_por` varchar(50) DEFAULT NULL,
+  `motivo_cancelacion` text DEFAULT NULL,
   `fecha_cancelacion` timestamp NULL DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Volcado de datos para la tabla `citas`
---
-
-INSERT INTO `citas` (`id_cita`, `id_paciente`, `id_horario`, `id_estado`, `motivo`, `observaciones`, `costo`, `fecha_creacion`, `fecha_actualizacion`, `cancelada_por`, `motivo_cancelacion`, `fecha_cancelacion`) VALUES
-(1, 2, 1, 1, 'Control médico general - chequeo anual', NULL, 0.00, '2025-08-19 21:27:00', '2025-08-19 21:27:00', NULL, NULL, NULL);
-
---
--- Disparadores `citas`
---
-DELIMITER $$
-CREATE TRIGGER `tr_auditoria_citas_update` AFTER UPDATE ON `citas` FOR EACH ROW BEGIN
-    IF OLD.id_estado != NEW.id_estado THEN
-        INSERT INTO auditoria_citas (
-            id_cita, 
-            evento, 
-            estado_anterior, 
-            estado_nuevo, 
-            detalle
-        ) VALUES (
-            NEW.id_cita,
-            CONCAT('cambio_estado_', (SELECT nombre FROM estados_cita WHERE id_estado = NEW.id_estado)),
-            OLD.id_estado,
-            NEW.id_estado,
-            CONCAT('Estado: ', 
-                   (SELECT nombre FROM estados_cita WHERE id_estado = OLD.id_estado),
-                   ' → ',
-                   (SELECT nombre FROM estados_cita WHERE id_estado = NEW.id_estado))
-        );
-    END IF;
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `tr_liberar_horario_cancelacion` AFTER UPDATE ON `citas` FOR EACH ROW BEGIN
-    IF NEW.id_estado = 4 AND OLD.id_estado != 4 THEN
-        UPDATE horarios 
-        SET disponible = TRUE 
-        WHERE id_horario = NEW.id_horario;
-    END IF;
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `tr_ocupar_horario_creacion` AFTER INSERT ON `citas` FOR EACH ROW BEGIN
-    UPDATE horarios 
-    SET disponible = FALSE 
-    WHERE id_horario = NEW.id_horario;
-    
-    INSERT INTO auditoria_citas (
-        id_cita, 
-        evento, 
-        estado_nuevo, 
-        detalle
-    ) VALUES (
-        NEW.id_cita,
-        'creada',
-        NEW.id_estado,
-        'Cita creada exitosamente'
-    );
-END
-$$
-DELIMITER ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -205,10 +134,7 @@ INSERT INTO `especialidades` (`id_especialidad`, `nombre`, `descripcion`, `activ
 (4, 'Pediatría', 'Atención médica en niños y adolescentes', 1, '2025-08-19 21:26:59'),
 (5, 'Ginecología', 'Salud reproductiva femenina', 1, '2025-08-19 21:26:59'),
 (6, 'Neurología', 'Enfermedades del sistema nervioso', 1, '2025-08-19 21:26:59'),
-(7, 'Psiquiatría', 'Trastornos de salud mental', 1, '2025-08-19 21:26:59'),
-(8, 'Oftalmología', 'Enfermedades de los ojos', 1, '2025-08-19 21:26:59'),
-(9, 'Ortopedia', 'Sistema musculoesquelético', 1, '2025-08-19 21:26:59'),
-(10, 'Endocrinología', 'Trastornos hormonales', 1, '2025-08-19 21:26:59');
+(7, 'Psiquiatría', 'Trastornos de salud mental', 1, '2025-08-19 21:26:59');
 
 -- --------------------------------------------------------
 
@@ -249,43 +175,40 @@ CREATE TABLE `horarios` (
   `hora_inicio` time NOT NULL,
   `hora_fin` time NOT NULL,
   `disponible` tinyint(1) DEFAULT 1,
-  `duracion_minutos` tinyint(4) DEFAULT 30,
+  `duracion_minutos` int(11) DEFAULT 30,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `horarios`
 --
 
 INSERT INTO `horarios` (`id_horario`, `id_medico`, `fecha`, `hora_inicio`, `hora_fin`, `disponible`, `duracion_minutos`, `created_at`) VALUES
-(1, 1, '2025-08-20', '09:00:00', '09:30:00', 0, 30, '2025-08-19 21:27:00'),
-(2, 1, '2025-08-20', '09:30:00', '10:00:00', 1, 30, '2025-08-19 21:27:00'),
-(3, 1, '2025-08-20', '10:00:00', '10:30:00', 1, 30, '2025-08-19 21:27:00'),
-(4, 1, '2025-08-20', '14:00:00', '14:30:00', 1, 30, '2025-08-19 21:27:00'),
-(5, 1, '2025-08-20', '14:30:00', '15:00:00', 1, 30, '2025-08-19 21:27:00'),
-(6, 2, '2025-08-21', '08:00:00', '08:30:00', 1, 30, '2025-08-19 21:27:00'),
-(7, 2, '2025-08-21', '08:30:00', '09:00:00', 1, 30, '2025-08-19 21:27:00'),
-(8, 2, '2025-08-21', '15:00:00', '15:30:00', 1, 30, '2025-08-19 21:27:00'),
-(9, 2, '2025-08-21', '15:30:00', '16:00:00', 1, 30, '2025-08-19 21:27:00'),
-(10, 3, '2025-08-22', '10:00:00', '10:30:00', 1, 30, '2025-08-19 21:27:00'),
-(11, 3, '2025-08-22', '10:30:00', '11:00:00', 1, 30, '2025-08-19 21:27:00'),
-(12, 3, '2025-08-22', '16:00:00', '16:30:00', 1, 30, '2025-08-19 21:27:00'),
-(13, 4, '2025-08-23', '09:00:00', '09:30:00', 1, 30, '2025-08-19 21:27:00'),
-(14, 4, '2025-08-23', '11:00:00', '11:30:00', 1, 30, '2025-08-19 21:27:00'),
-(15, 4, '2025-08-23', '11:30:00', '12:00:00', 1, 30, '2025-08-19 21:27:00');
-
---
--- Disparadores `horarios`
---
-DELIMITER $$
-CREATE TRIGGER `before_insert_horarios` BEFORE INSERT ON `horarios` FOR EACH ROW BEGIN
-    IF NEW.fecha < CURDATE() THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'La fecha no puede ser en el pasado';
-    END IF;
-END
-$$
-DELIMITER ;
+(1, 1, '2025-09-07', '08:00:00', '09:00:00', 1, 60, '2025-09-01 19:35:25'),
+(2, 1, '2025-09-08', '09:30:00', '10:30:00', 1, 60, '2025-09-01 19:35:25'),
+(3, 1, '2025-09-09', '11:00:00', '12:00:00', 1, 60, '2025-09-01 19:35:25'),
+(4, 1, '2025-09-10', '14:00:00', '15:00:00', 1, 60, '2025-09-01 19:35:25'),
+(5, 1, '2025-09-11', '15:30:00', '16:30:00', 1, 60, '2025-09-01 19:35:25'),
+(6, 2, '2025-09-07', '08:30:00', '09:30:00', 1, 60, '2025-09-01 19:35:25'),
+(7, 2, '2025-09-08', '10:00:00', '11:00:00', 1, 60, '2025-09-01 19:35:25'),
+(8, 2, '2025-09-09', '11:30:00', '12:30:00', 1, 60, '2025-09-01 19:35:25'),
+(9, 2, '2025-09-10', '13:30:00', '14:30:00', 1, 60, '2025-09-01 19:35:25'),
+(10, 2, '2025-09-11', '15:00:00', '16:00:00', 1, 60, '2025-09-01 19:35:25'),
+(11, 3, '2025-09-07', '07:30:00', '08:30:00', 1, 60, '2025-09-01 19:35:25'),
+(12, 3, '2025-09-08', '09:00:00', '10:00:00', 1, 60, '2025-09-01 19:35:25'),
+(13, 3, '2025-09-09', '10:30:00', '11:30:00', 1, 60, '2025-09-01 19:35:25'),
+(14, 3, '2025-09-10', '12:00:00', '13:00:00', 1, 60, '2025-09-01 19:35:25'),
+(15, 3, '2025-09-11', '14:00:00', '15:00:00', 1, 60, '2025-09-01 19:35:25'),
+(16, 4, '2025-09-07', '08:00:00', '09:00:00', 1, 60, '2025-09-01 19:35:25'),
+(17, 4, '2025-09-08', '09:30:00', '10:30:00', 1, 60, '2025-09-01 19:35:25'),
+(18, 4, '2025-09-09', '11:00:00', '12:00:00', 1, 60, '2025-09-01 19:35:25'),
+(19, 4, '2025-09-10', '13:00:00', '14:00:00', 1, 60, '2025-09-01 19:35:25'),
+(20, 4, '2025-09-11', '14:30:00', '15:30:00', 1, 60, '2025-09-01 19:35:25'),
+(21, 5, '2025-09-07', '07:00:00', '08:00:00', 1, 60, '2025-09-01 19:35:25'),
+(22, 5, '2025-09-08', '08:30:00', '09:30:00', 1, 60, '2025-09-01 19:35:25'),
+(23, 5, '2025-09-09', '10:00:00', '11:00:00', 1, 60, '2025-09-01 19:35:25'),
+(24, 5, '2025-09-10', '11:30:00', '12:30:00', 1, 60, '2025-09-01 19:35:25'),
+(25, 5, '2025-09-11', '13:00:00', '14:00:00', 1, 60, '2025-09-01 19:35:25');
 
 -- --------------------------------------------------------
 
@@ -312,10 +235,11 @@ CREATE TABLE `medicos` (
 --
 
 INSERT INTO `medicos` (`id_medico`, `nombre_completo`, `correo`, `registro_profesional`, `consultorio`, `telefono`, `estado`, `biografia`, `experiencia_anos`, `foto_url`, `created_at`) VALUES
-(1, 'Dr. Carlos García López', 'dr.garcia@hospital.com', 'MP-12345', 'Consultorio 101', '3201234567', 'activo', 'Especialista en Medicina General y Cardiología con 15 años de experiencia.', 15, NULL, '2025-08-19 21:27:00'),
-(2, 'Dra. María Martínez Ruiz', 'dra.martinez@hospital.com', 'MP-67890', 'Consultorio 102', '3201234568', 'activo', 'Pediatra con especialización en cuidados intensivos neonatales.', 10, NULL, '2025-08-19 21:27:00'),
-(3, 'Dr. Luis Rodríguez Peña', 'dr.rodriguez@hospital.com', 'MP-11111', 'Consultorio 201', '3201234569', 'activo', 'Dermatólogo especializado en cirugía dermatológica.', 8, NULL, '2025-08-19 21:27:00'),
-(4, 'Dra. Ana Jiménez Castro', 'dra.jimenez@hospital.com', 'MP-22222', 'Consultorio 202', '3201234570', 'activo', 'Ginecóloga con maestría en medicina reproductiva.', 12, NULL, '2025-08-19 21:27:00');
+(1, 'Dr. Juan Pérez', 'juan.perez@email.com', 'RP12345', 'Consultorio A', '3001234567', 'activo', 'Especialista en medicina general con 10 años de experiencia.', 10, 'https://example.com/foto1.jpg', '2025-09-01 19:28:24'),
+(2, 'Dra. María López', 'maria.lopez@email.com', 'RP67890', 'Consultorio B', '3007654321', 'activo', 'Ginecóloga con amplia experiencia en atención prenatal y fertilidad.', 12, 'https://example.com/foto2.jpg', '2025-09-01 19:28:24'),
+(3, 'Dr. Carlos Martínez', 'carlos.martinez@email.com', 'RP11223', 'Consultorio C', '3011122233', 'activo', 'Pediatra enfocado en desarrollo infantil y vacunas.', 8, 'https://example.com/foto3.jpg', '2025-09-01 19:28:24'),
+(4, 'Dra. Ana Gómez', 'ana.gomez@email.com', 'RP44556', 'Consultorio D', '3013344556', 'activo', 'Dermatóloga especializada en piel sensible y tratamientos estéticos.', 5, 'https://example.com/foto4.jpg', '2025-09-01 19:28:24'),
+(5, 'Dr. Luis Torres', 'luis.torres@email.com', 'RP77889', 'Consultorio E', '3024455667', 'activo', 'Cirujano con experiencia en procedimientos ambulatorios y quirúrgicos.', 15, 'https://example.com/foto5.jpg', '2025-09-01 19:28:24');
 
 -- --------------------------------------------------------
 
@@ -336,11 +260,11 @@ CREATE TABLE `medico_especialidad` (
 --
 
 INSERT INTO `medico_especialidad` (`id_medico`, `id_especialidad`, `fecha_certificacion`, `activa`, `created_at`) VALUES
-(1, 1, '2010-01-15', 1, '2025-08-19 21:27:00'),
-(1, 2, '2015-06-20', 1, '2025-08-19 21:27:00'),
-(2, 4, '2018-03-10', 1, '2025-08-19 21:27:00'),
-(3, 3, '2019-07-15', 1, '2025-08-19 21:27:00'),
-(4, 5, '2016-09-20', 1, '2025-08-19 21:27:00');
+(1, 1, '2015-06-15', 1, '2025-09-01 19:30:49'),
+(2, 2, '2012-03-10', 1, '2025-09-01 19:30:49'),
+(3, 3, '2018-09-05', 1, '2025-09-01 19:30:49'),
+(4, 4, '2020-01-20', 1, '2025-09-01 19:30:49'),
+(5, 5, '2010-11-30', 1, '2025-09-01 19:30:49');
 
 -- --------------------------------------------------------
 
@@ -365,9 +289,10 @@ CREATE TABLE `pacientes` (
 --
 
 INSERT INTO `pacientes` (`id_paciente`, `fecha_nacimiento`, `sexo`, `eps`, `alergias`, `contacto_emergencia`, `telefono_emergencia`, `created_at`, `updated_at`) VALUES
-(2, '1990-05-15', 'M', 'EPS Salud Total', NULL, 'Ana Pérez (Madre)', '3009876543', '2025-08-19 21:27:00', '2025-08-19 21:27:00'),
-(3, '1985-08-22', 'F', 'Nueva EPS', NULL, 'Pedro González (Esposo)', '3009876544', '2025-08-19 21:27:00', '2025-08-19 21:27:00'),
-(4, '1992-12-10', 'M', 'Sanitas', NULL, 'Luisa Rodríguez (Esposa)', '3009876545', '2025-08-19 21:27:00', '2025-08-19 21:27:00');
+(1, NULL, NULL, NULL, NULL, NULL, NULL, '2025-09-01 19:15:21', '2025-09-01 19:15:21'),
+(2, '2006-10-25', 'F', 'Compensar', 'Ninguna', 'Liliana Ramirez (Mamá)', '3183904956', '2025-09-01 19:16:11', '2025-09-01 19:22:51'),
+(3, '2006-10-25', 'M', 'Sanitas', 'Ninguna', 'Daniela Luna (Esposa)', '3183904956', '2025-09-01 19:17:45', '2025-09-01 19:19:52'),
+(4, '2000-10-10', 'M', NULL, NULL, NULL, NULL, '2025-09-01 19:24:41', '2025-09-01 19:25:26');
 
 -- --------------------------------------------------------
 
@@ -382,13 +307,6 @@ CREATE TABLE `recuperacion_password` (
   `expiracion` datetime NOT NULL,
   `creado_en` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Volcado de datos para la tabla `recuperacion_password`
---
-
-INSERT INTO `recuperacion_password` (`id`, `id_usuario`, `token`, `expiracion`, `creado_en`) VALUES
-(2, 15, '517d059073fe332c138af49033a789e2d44869812f246b0c68a4fab98dbb22c6', '2025-08-20 16:43:38', '2025-08-20 20:43:38');
 
 -- --------------------------------------------------------
 
@@ -440,13 +358,10 @@ CREATE TABLE `usuarios` (
 --
 
 INSERT INTO `usuarios` (`id_usuario`, `correo`, `password_hash`, `nombre_completo`, `documento`, `telefono`, `id_rol`, `activo`, `fecha_ultimo_acceso`, `created_at`, `updated_at`, `intentos_fallidos`, `bloqueado_hasta`, `reset_token`, `reset_token_expire`) VALUES
-(1, 'admin@sistema.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador Sistema', '12345678', '3001234567', 1, 1, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00', 0, NULL, NULL, NULL),
-(2, 'juan@test.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Juan Pérez Gómez', '1023456789', '3001234568', 2, 1, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00', 0, NULL, NULL, NULL),
-(3, 'maria@test.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'María González López', '1034567890', '3001234569', 2, 1, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00', 0, NULL, NULL, NULL),
-(4, 'carlos@test.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Carlos Rodríguez Silva', '1045678901', '3001234570', 2, 1, NULL, '2025-08-19 21:27:00', '2025-08-19 21:27:00', 0, NULL, NULL, NULL),
-(6, 'valentina@example.com', '$2b$10$Q/IlhJkvi2JDw/JCQNuKJOG1tAyEtdULS2kW1SqvTLayxMFtpdL6W', 'Valentina Ramirez', '123400000', '3001230067', 2, 1, NULL, '2025-08-20 15:47:07', '2025-08-20 15:47:07', 0, NULL, NULL, NULL),
-(7, 'ramiro@example.com', '$2b$10$Y5Jx/KJTMwF3oywuGpK74.P5B2QMGKfVYLWiIl9UDzhsTq.Km3NP6', 'Ramiro Ramirez', '123488880', '3001230067', 2, 1, NULL, '2025-08-20 16:09:14', '2025-08-20 16:09:14', 0, NULL, NULL, NULL),
-(15, 'valentinaramirezld25@gmail.com', '$2b$10$tFtQk36eXK5leroNYLEFKuV5SaJAaNNMZQNLHa8IjDe65OrQkje0C', 'Laura Ramirez', '123400080', '3001230067', 2, 1, '2025-08-20 20:41:28', '2025-08-20 19:18:03', '2025-08-20 20:41:28', 0, NULL, NULL, NULL);
+(1, 'lauravalentinadiaz25@gmail.com', '$2b$10$5jYrFjvYfmILe5X1hgb6D.Ss04d4AVEK8GPZBBfgC5pR5ME1x5/By', 'Laura Valentina Diaz Ramirez', '1110487272', '314372727272', 1, 1, NULL, '2025-09-01 19:15:21', '2025-09-01 19:21:49', 0, NULL, NULL, NULL),
+(2, 'valentinaramirezld25@gmail.com', '$2b$10$WqmOR4.I23NYPqwe3l2G9eIM1UBLeA4ac33ZyEhCyfZsDR2QiW09a', 'Laura Valentina Diaz Ramirez', '29999293718', '3123461118', 2, 1, '2025-09-01 19:22:27', '2025-09-01 19:16:11', '2025-09-01 19:22:27', 0, NULL, NULL, NULL),
+(3, 'leonba251996@gmail.com', '$2b$10$VxoZ8.gviKS0U3iFYS/.w.2uU9Ft9bOCR0EXps.OphgJGrzW1gkhq', 'Manuel Antonio  Leon Ballesta', '1292938512', '3123232848', 2, 1, '2025-09-01 19:19:07', '2025-09-01 19:17:45', '2025-09-01 19:19:07', 0, NULL, NULL, NULL),
+(4, 'Juan@gmail.com', '$2b$10$FPrh7YQOwiEQ6ciyoV9w7eFRYWpgeKla9swM/gP4kZ1wCZMb7vNpi', 'Juan David Cardona Espinosa', '52786045', '3198467785', 2, 1, '2025-09-01 19:25:08', '2025-09-01 19:24:41', '2025-09-01 19:25:08', 0, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -456,7 +371,7 @@ INSERT INTO `usuarios` (`id_usuario`, `correo`, `password_hash`, `nombre_complet
 --
 CREATE TABLE `vista_citas_completa` (
 `id_cita` bigint(20)
-,`motivo` varchar(500)
+,`motivo` text
 ,`costo` decimal(10,2)
 ,`fecha_creacion` timestamp
 ,`fecha_actualizacion` timestamp
@@ -488,7 +403,7 @@ CREATE TABLE `vista_horarios_disponibles` (
 ,`fecha` date
 ,`hora_inicio` time
 ,`hora_fin` time
-,`duracion_minutos` tinyint(4)
+,`duracion_minutos` int(11)
 ,`id_medico` bigint(20)
 ,`medico_nombre` varchar(150)
 ,`consultorio` varchar(60)
@@ -533,12 +448,10 @@ ALTER TABLE `auditoria_citas`
 --
 ALTER TABLE `citas`
   ADD PRIMARY KEY (`id_cita`),
-  ADD UNIQUE KEY `unique_horario_cita` (`id_horario`),
   ADD KEY `idx_paciente` (`id_paciente`),
+  ADD KEY `idx_horario` (`id_horario`),
   ADD KEY `idx_estado` (`id_estado`),
-  ADD KEY `idx_fecha_creacion` (`fecha_creacion`),
-  ADD KEY `idx_citas_paciente_estado` (`id_paciente`,`id_estado`),
-  ADD KEY `idx_citas_fecha_estado` (`fecha_creacion`,`id_estado`);
+  ADD KEY `idx_fecha_creacion` (`fecha_creacion`);
 
 --
 -- Indices de la tabla `configuracion_sistema`
@@ -566,10 +479,7 @@ ALTER TABLE `estados_cita`
 --
 ALTER TABLE `horarios`
   ADD PRIMARY KEY (`id_horario`),
-  ADD UNIQUE KEY `unique_horario` (`id_medico`,`fecha`,`hora_inicio`,`hora_fin`),
-  ADD KEY `idx_medico_fecha` (`id_medico`,`fecha`),
-  ADD KEY `idx_disponible` (`disponible`),
-  ADD KEY `idx_fecha_hora` (`fecha`,`hora_inicio`);
+  ADD KEY `fk_horario_medico` (`id_medico`);
 
 --
 -- Indices de la tabla `medicos`
@@ -627,13 +537,13 @@ ALTER TABLE `usuarios`
 -- AUTO_INCREMENT de la tabla `auditoria_citas`
 --
 ALTER TABLE `auditoria_citas`
-  MODIFY `id_auditoria` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_auditoria` bigint(20) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `citas`
 --
 ALTER TABLE `citas`
-  MODIFY `id_cita` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_cita` bigint(20) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `configuracion_sistema`
@@ -645,25 +555,25 @@ ALTER TABLE `configuracion_sistema`
 -- AUTO_INCREMENT de la tabla `especialidades`
 --
 ALTER TABLE `especialidades`
-  MODIFY `id_especialidad` smallint(6) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id_especialidad` smallint(6) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT de la tabla `horarios`
 --
 ALTER TABLE `horarios`
-  MODIFY `id_horario` bigint(20) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_horario` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
 -- AUTO_INCREMENT de la tabla `medicos`
 --
 ALTER TABLE `medicos`
-  MODIFY `id_medico` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id_medico` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `recuperacion_password`
 --
 ALTER TABLE `recuperacion_password`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `roles`
@@ -675,7 +585,7 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT de la tabla `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id_usuario` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id_usuario` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- Restricciones para tablas volcadas
@@ -692,15 +602,15 @@ ALTER TABLE `auditoria_citas`
 -- Filtros para la tabla `citas`
 --
 ALTER TABLE `citas`
-  ADD CONSTRAINT `citas_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `pacientes` (`id_paciente`) ON DELETE CASCADE,
-  ADD CONSTRAINT `citas_ibfk_2` FOREIGN KEY (`id_horario`) REFERENCES `horarios` (`id_horario`) ON DELETE CASCADE,
-  ADD CONSTRAINT `citas_ibfk_3` FOREIGN KEY (`id_estado`) REFERENCES `estados_cita` (`id_estado`);
+  ADD CONSTRAINT `fk_citas_estado` FOREIGN KEY (`id_estado`) REFERENCES `estados_cita` (`id_estado`),
+  ADD CONSTRAINT `fk_citas_horario` FOREIGN KEY (`id_horario`) REFERENCES `horarios` (`id_horario`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_citas_paciente` FOREIGN KEY (`id_paciente`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE;
 
 --
 -- Filtros para la tabla `horarios`
 --
 ALTER TABLE `horarios`
-  ADD CONSTRAINT `horarios_ibfk_1` FOREIGN KEY (`id_medico`) REFERENCES `medicos` (`id_medico`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_horario_medico` FOREIGN KEY (`id_medico`) REFERENCES `medicos` (`id_medico`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Filtros para la tabla `medico_especialidad`
@@ -713,6 +623,7 @@ ALTER TABLE `medico_especialidad`
 -- Filtros para la tabla `pacientes`
 --
 ALTER TABLE `pacientes`
+  ADD CONSTRAINT `fk_paciente_usuario` FOREIGN KEY (`id_paciente`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE,
   ADD CONSTRAINT `pacientes_ibfk_1` FOREIGN KEY (`id_paciente`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE;
 
 --
