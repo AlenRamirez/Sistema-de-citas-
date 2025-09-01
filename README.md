@@ -54,6 +54,7 @@ Asegúrese de tener instaladas las siguientes herramientas antes de proceder con
 ```bash
 git clone https://github.com/AlenRamirez/Sistema-de-citas-.git
 cd Sistema-de-citas-
+cd backend
 ```
 
 ### 2. Instalación de Dependencias
@@ -293,45 +294,53 @@ const headers = {
 
 ```
 sistema-citas/
-├── src/
-│   ├── config/             # Configuraciones de la aplicación
-│   │   ├── database.js     # Configuración de MySQL
-│   │   ├── jwt.js          # Configuración JWT
-│   │   └── email.js        # Configuración Nodemailer
-│   ├── controllers/        # Lógica de negocio
-│   │   ├── authController.js
-│   │   ├── citasController.js
-│   │   └── usuariosController.js
-│   ├── middleware/         # Middlewares personalizados
-│   │   ├── auth.js         # Verificación de autenticación
-│   │   ├── validation.js   # Validación de datos
-│   │   └── errorHandler.js # Manejo de errores
-│   ├── models/            # Modelos de datos
-│   │   ├── Usuario.js
-│   │   ├── Cita.js
-│   │   └── Medico.js
-│   ├── routes/            # Definición de rutas
-│   │   ├── auth.js
-│   │   ├── citas.js
-│   │   └── medicos.js
-│   ├── services/          # Servicios externos
-│   │   ├── emailService.js
-│   │   └── reporteService.js
-│   ├── utils/             # Utilidades auxiliares
-│   │   ├── validators.js
-│   │   ├── helpers.js
-│   │   └── constants.js
-│   └── index.js           # Punto de entrada
-├── public/                # Recursos estáticos
-│   ├── css/
-│   ├── js/
-│   ├── images/
-│   └── index.html
-├── tests/                 # Pruebas unitarias e integración
-├── docs/                  # Documentación adicional
-├── .env.example          # Plantilla de variables de entorno
-├── package.json
-└── README.md
+├── backend/
+│   ├── node_modules/      # Dependencias de Node.js
+│   ├── src/
+│   │   ├── config/        # Configuraciones de la aplicación
+│   │   │   └── db.js      # Configuración de MySQL
+│   │   ├── controllers/   # Lógica de negocio
+│   │   │   ├── authController.js
+│   │   │   ├── adminController.js
+│   │   │   └── pacienteController.js
+│   │   ├── middleware/    # Middlewares personalizados
+│   │   │   └── authMiddleware.js  # Verificación de autenticación
+│   │   ├── routes/        # Definición de rutas
+│   │   │   ├── adminRoutes.js
+│   │   │   ├── authRoutes.js
+│   │   │   └── pacienteRoutes.js
+│   │   ├── utils/         # Utilidades auxiliares
+│   │   │   └── mailer.js  # Servicio de correo
+│   │   └── index.js       # Punto de entrada
+│   ├── .env              # Variables de entorno
+│   ├── .gitignore        # Archivos ignorados por Git
+│   ├── package-lock.json # Dependencias específicas
+│   ├── package.json      # Configuración del proyecto
+│   └── swagger.js        # Configuración de Swagger
+├── front/
+│   ├── css/              # Estilos de la aplicación
+│   │   ├── Acesso.css
+│   │   ├── admin.css
+│   │   ├── index.css
+│   │   ├── PacienteStyles.css
+│   │   ├── recoverPass.css
+│   │   └── resetPass.css
+│   ├── js/               # Scripts del frontend
+│   │   ├── AcessoConsumo.js
+│   │   ├── adminConsumo.js
+│   │   ├── PacienteConsumo.js
+│   │   ├── recoverPass.js
+│   │   └── resetPass.js
+│   └── pages/            # Páginas HTML
+│       ├── admin/
+│       │   └── dasboardA.html
+│       ├── paciente/
+│       │   └── dasboardP.html
+│       ├── Acesso.html
+│       ├── index.html
+│       ├── recoverPass.html
+│       └── resetPass.html
+└── README.md             # Documentación del proyecto
 ```
 
 ## Scripts Disponibles
@@ -429,7 +438,7 @@ npm install
 
 ### Estándares de Código
 
-- Seguir convenciones de JavaScript ES6+
+- Seguir convenciones de JavaScript
 - Documentar funciones con JSDoc
 - Mantener cobertura de pruebas superior al 80%
 - Usar ESLint para consistencia de código
@@ -451,4 +460,3 @@ Para soporte técnico y consultas:
 
 - **Issues de GitHub**: Para reportar bugs o solicitar features
 - **Documentación Swagger**: Para detalles de la API
-- **Wiki del Proyecto**: Para guías avanzadas y tutoriales
