@@ -392,6 +392,64 @@ const adminController = {
             });
         }
     },
+    getEspecialidades: async (req, res) => {
+        console.log('🔍 GET /admin/especialidades - Iniciando...');
+        console.log('Usuario autenticado:', req.user);
+        console.log('Headers recibidos:', req.headers);
+
+        try {
+            console.log('📊 Ejecutando consulta a base de datos...');
+
+            // Consulta simple para contar
+            const [countRows] = await pool.query('SELECT COUNT(*) as total FROM especialidades');
+            console.log('Total especialidades en BD:', countRows[0].total);
+
+            // Consulta principal
+            const [especialidades] = await pool.query(`
+            SELECT id_especialidad, nombre, descripcion
+            FROM especialidades 
+            ORDER BY nombre
+        `);
+
+            console.log('Especialidades obtenidas:', especialidades.length);
+            console.log('Primeros 3 registros:', especialidades.slice(0, 3));
+
+            res.json({
+                success: true,
+                message: 'Especialidades obtenidas correctamente',
+                data: especialidades,
+                debug: {
+                    total: especialidades.length,
+                    query_executed: true,
+                    timestamp: new Date().toISOString()
+                }
+            });
+
+        } catch (error) {
+            console.error('❌ Error al obtener especialidades:', {
+                message: error.message,
+                code: error.code,
+                errno: error.errno,
+                sqlState: error.sqlState,
+                sqlMessage: error.sqlMessage,
+                stack: error.stack
+            });
+
+            res.status(500).json({
+                success: false,
+                message: 'Error al obtener especialidades',
+                error: {
+                    message: error.message,
+                    code: error.code,
+                    sqlState: error.sqlState
+                },
+                debug: {
+                    timestamp: new Date().toISOString(),
+                    query_failed: true
+                }
+            });
+        }
+    },
 
     // Update doctor's specialties
     updateMedicoEspecialidades: async (req, res) => {
@@ -440,19 +498,20 @@ const adminController = {
             connection = await pool.getConnection();
             await connection.beginTransaction();
 
-            // Remove all current specialties
+            // Remove all current specialties for this doctor
             await connection.execute(
                 'DELETE FROM medico_especialidad WHERE id_medico = ?',
                 [medicoId]
             );
 
-            // Add new specialties
+            // Add new specialties one by one
             if (especialidades.length > 0) {
-                const values = especialidades.map(espId => [medicoId, espId]);
-                await connection.execute(
-                    'INSERT INTO medico_especialidad (id_medico, id_especialidad) VALUES ?',
-                    [values]
-                );
+                for (const espId of especialidades) {
+                    await connection.execute(
+                        'INSERT INTO medico_especialidad (id_medico, id_especialidad, fecha_certificacion, activa, created_at) VALUES (?, ?, CURDATE(), 1, NOW())',
+                        [medicoId, espId]
+                    );
+                }
             }
 
             await connection.commit();

@@ -27,13 +27,18 @@ router.delete('/usuarios/:id', adminController.deleteUser);
 
 // GESTIÓN DE MÉDICOS - HORARIOS Y ESPECIALIDADES
 router.get('/medicos', adminController.getAllMedicos);
-
+router.get('/especialidades', adminController.getEspecialidades);
 router.delete('/medicos/:medicoId', adminController.deleteMedico);
 
-// Horarios de médicos
+// Especialidades de médicos - ROUTES MISSING
+router.get('/medicos/:medicoId/especialidades', adminController.getMedicoEspecialidades);
+router.put('/medicos/:medicoId/especialidades', adminController.updateMedicoEspecialidades);
+
+// Horarios de médicos - FIXED ROUTES
 router.get('/medicos/:medicoId/horarios', adminController.getMedicoHorarios);
-router.put('/medicos/:medicoId/horarios/:horarioId', adminController.updateMedicoHorario);
-router.delete('/medicos/:medicoId/horarios/:horarioId', adminController.deleteMedicoHorario);
+router.post('/medicos/:medicoId/horarios', adminController.createMedicoHorario); // THIS WAS MISSING
+router.put('/horarios/:horarioId', adminController.updateMedicoHorario); // FIXED PATH
+router.delete('/horarios/:horarioId', adminController.deleteMedicoHorario); // FIXED PATH
 
 // GESTIÓN DE CITAS
 router.get('/citas', adminController.getAllCitas);
