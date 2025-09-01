@@ -46,6 +46,8 @@ Asegúrese de tener instaladas las siguientes herramientas antes de proceder con
 - **MySQL**: Versión 8.0 o superior (recomendado)
 - **Git**: Para control de versiones
 - **npm**: Gestor de paquetes de Node.js
+- **Visual Studio Code**: Editor recomendado para ejecutar el frontend
+- **Live Server Extension**: Para servir archivos HTML en desarrollo
 
 ## Guía de Instalación
 
@@ -205,29 +207,102 @@ INSERT INTO especialidades (nombre, descripcion) VALUES
 
 ## Comandos de Ejecución
 
-### Modo Desarrollo
+### Backend (API)
+
+#### Modo Desarrollo
 
 ```bash
+# Desde la carpeta backend/
 npm run dev
 ```
 
 Inicia el servidor en modo desarrollo con reinicio automático mediante nodemon.
 
-### Modo Producción
+#### Modo Producción
 
 ```bash
+# Desde la carpeta backend/
 npm start
 ```
 
 Ejecuta el servidor en modo producción optimizado.
 
+### Frontend (Interfaz Web)
+
+Para ejecutar el frontend HTML, necesita instalar y usar Live Server:
+
+#### 1. Instalar Live Server Extension
+
+Instale la extensión Live Server Plus en Visual Studio Code:
+
+**Opción A: Desde VS Code**
+1. Abra Visual Studio Code
+2. Vaya a Extensions (Ctrl+Shift+X)
+3. Busque "Live Server"
+4. Instale "Live Server" de Ritwick Dey
+
+**Opción B: Desde la línea de comandos**
+```bash
+code --install-extension ms-vscode.live-server
+```
+
+**Extensión recomendada**: https://github.com/ritwickdey/vscode-live-server-plus-plus
+
+#### 2. Ejecutar el Frontend
+
+1. Abra la carpeta `front/` en Visual Studio Code
+2. Navegue al archivo HTML que desea ejecutar:
+   - `index.html` - Página principal
+   - `pages/Acesso.html` - Página de acceso/login
+   - `pages/admin/dasboardA.html` - Dashboard de administrador
+   - `pages/paciente/dasboardP.html` - Dashboard de paciente
+   - `pages/recoverPass.html` - Recuperar contraseña
+   - `pages/resetPass.html` - Restablecer contraseña
+
+3. **Clic derecho en el archivo HTML** → **"Open with Live Server"**
+
+4. El navegador se abrirá automáticamente en `http://localhost:5501` (o el puerto disponible)
+
+
 ## Acceso a la Aplicación
 
-Una vez iniciado el servidor:
+Una vez iniciados ambos servicios:
 
-- **Aplicación Web**: `http://localhost:3000`
+### Backend (API)
 - **API REST**: `http://localhost:3000/api`
 - **Documentación Swagger**: `http://localhost:3000/api-docs`
+
+### Frontend (Interfaz Web)
+- **Aplicación Web (Live Server)**: `http://localhost:5501`
+- **Página Principal**: `http://localhost:5501/index.html`
+- **Login/Acceso**: `http://localhost:5501/pages/Acesso.html`
+
+## Flujo de Trabajo Completo
+
+### Para Desarrolladores
+
+1. **Iniciar el Backend**:
+   ```bash
+   cd backend/
+   npm run dev
+   ```
+
+2. **Iniciar el Frontend**:
+   - Abrir Visual Studio Code
+   - Navegar a la carpeta `front/`
+   - Abrir el archivo HTML deseado
+   - Clic derecho → "Open with Live Server"
+
+3. **Verificar Conexión**:
+   - Backend corriendo en `http://localhost:3000`
+   - Frontend corriendo en `http://localhost:5501`
+   - Ambos servicios deben estar activos para funcionamiento completo
+
+### Orden de Inicio Recomendado
+
+1. **MySQL** (debe estar ejecutándose)
+2. **Backend API** (puerto 3000)
+3. **Frontend** (puerto 5501 con Live Server)
 
 ## Documentación de la API
 
@@ -424,6 +499,16 @@ npm install
 1. Verificar que `JWT_SECRET` sea consistente
 2. Confirmar que el token no haya expirado
 3. Validar formato del header Authorization
+
+### Problemas con Live Server
+
+**Síntoma**: Live Server no inicia o da error
+
+**Solución**:
+1. Verificar que la extensión esté instalada correctamente
+2. Reiniciar Visual Studio Code
+3. Verificar que el puerto 5500 no esté en uso
+4. Usar método alternativo con http-server
 
 ## Contribución al Proyecto
 
