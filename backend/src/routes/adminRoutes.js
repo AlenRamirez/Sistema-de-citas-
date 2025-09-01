@@ -20,42 +20,32 @@ router.use(isAdmin);
 // DASHBOARD
 router.get('/dashboard', adminController.getDashboard);
 
-// GESTIÓN DE USUARIOS
+// GESTIÓN DE USUARIOS (Pacientes y Médicos)
 router.get('/usuarios', adminController.getAllUsers);
 router.put('/usuarios/:id/estado', adminController.toggleUserStatus);
 router.delete('/usuarios/:id', adminController.deleteUser);
 
-// CU-04: GESTIÓN DE ESPECIALIDADES DEL MÉDICO
-router.get('/medicos/:medicoId/especialidades', adminController.getMedicoEspecialidades);
-router.put('/medicos/:medicoId/especialidades', adminController.updateMedicoEspecialidades);
+// GESTIÓN DE MÉDICOS - HORARIOS Y ESPECIALIDADES
+router.get('/medicos', adminController.getAllMedicos);
+
+router.delete('/medicos/:medicoId', adminController.deleteMedico);
+
+// Horarios de médicos
+router.get('/medicos/:medicoId/horarios', adminController.getMedicoHorarios);
+router.put('/medicos/:medicoId/horarios/:horarioId', adminController.updateMedicoHorario);
+router.delete('/medicos/:medicoId/horarios/:horarioId', adminController.deleteMedicoHorario);
 
 // GESTIÓN DE CITAS
 router.get('/citas', adminController.getAllCitas);
-router.get('/citas/estados', adminController.getEstadosCita);
-
-// CU-08: Cancelar cita
 router.put('/citas/:id/cancel', adminController.cancelCita);
-
-// CU-10: Registrar atención (marcar realizada) / No asistencia
 router.put('/citas/:id/status', adminController.updateCitaStatus);
 
-// GESTIÓN DE ESPECIALIDADES
-router.get('/especialidades', adminController.getEspecialidades);
-router.post('/especialidades', adminController.createEspecialidad);
-
-// GESTIÓN DE ESTADOS DE CITA
+// CONFIGURACIÓN DEL SISTEMA
+router.get('/estados-cita', adminController.getEstadosCita);
 router.post('/estados-cita', adminController.createEstadoCita);
 router.delete('/estados-cita/:id', adminController.deleteEstadoCita);
 
-// CU-12: REPORTES OPERATIVOS
-/**
- * @route GET /api/admin/reportes
- * @desc Obtener reportes según tipo especificado
- * @access Admin
- * @params tipo (required): citas_especialidad, no_asistencia, citas_mensuales, estados_citas, eficiencia_medicos
- * @params fecha_inicio (optional): YYYY-MM-DD
- * @params fecha_fin (optional): YYYY-MM-DD
- */
+// REPORTES
 router.get('/reportes', adminController.getReportes);
 
 module.exports = router;

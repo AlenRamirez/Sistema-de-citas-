@@ -2,8 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { testConnection } = require('./config/db');
-const swaggerUi = require('swagger-ui-express');
-const swaggerJsdoc = require('swagger-jsdoc');
 
 const authRoutes = require('./routes/authRoutes');
 const pacienteRoutes = require('./routes/pacienteRoutes');
@@ -29,18 +27,6 @@ app.use(cors({
 
 
 testConnection();
-
-// Swagger
-const swaggerOptions = {
-  definition: {
-    openapi: "3.0.0",
-    info: { title: "API Sistema de Citas Médicas", version: "1.0.0" }
-  },
-  apis: ["./routes/*.js"],
-};
-const swaggerDocs = swaggerJsdoc(swaggerOptions);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
-
 
 app.use('/', authRoutes);              
 app.use('/pacientes', pacienteRoutes); 
@@ -68,5 +54,4 @@ app.get('/', (req, res) => res.send('API funcionando'));
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(` Servidor ejecutándose en http://localhost:${PORT}`);
-  console.log(`Documentación en http://localhost:${PORT}/api-docs`);
 });

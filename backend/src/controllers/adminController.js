@@ -7,30 +7,20 @@ const adminController = {
     // Dashboard con estadísticas actualizadas
     getDashboard: async (req, res) => {
         try {
-            const stats = await pool.query(`
-                SELECT 
-                    (SELECT COUNT(*) FROM usuarios WHERE id_rol = 2) as total_pacientes,
-                    (SELECT COUNT(*) FROM medicos WHERE estado = 'activo') as total_medicos,
-                    (SELECT COUNT(*) FROM citas) as total_citas,
-                    (SELECT COUNT(*) FROM usuarios WHERE activo = 1) as usuarios_activos
-            `);
+            const statsQuery = `
+            SELECT
+                (SELECT COUNT(*) FROM usuarios WHERE id_rol = 2) as total_pacientes,
+                (SELECT COUNT(*) FROM medicos WHERE estado = 'activo') as total_medicos,
+                (SELECT COUNT(*) FROM citas) as total_citas
+        `;
 
-            const citasEspecialidad = await pool.query(`
-                SELECT e.nombre, COUNT(c.id_cita) as total
-                FROM especialidades e
-                LEFT JOIN medico_especialidad me ON e.id_especialidad = me.id_especialidad
-                LEFT JOIN medicos m ON me.id_medico = m.id_medico
-                LEFT JOIN horarios h ON m.id_medico = h.id_medico
-                LEFT JOIN citas c ON h.id_horario = c.id_horario
-                GROUP BY e.id_especialidad, e.nombre
-                ORDER BY total DESC
-            `);
+            const [stats] = await pool.query(statsQuery);
 
             res.json({
                 success: true,
                 data: {
-                    stats: stats[0],
-                    citasEspecialidad
+                    stats: stats
+                    // Remover citasEspecialidad de aquí
                 }
             });
 
@@ -42,68 +32,208 @@ const adminController = {
             });
         }
     },
-
+    
+    // GESTIÓN DE USUARIOS (Pacientes y Médicos)
     getAllUsers: async (req, res) => {
         try {
             const { tipo, estado, page = 1, limit = 10 } = req.query;
-            let whereClause = 'WHERE 1=1';
-            const params = [];
-
-            if (tipo && tipo !== 'todos') {
-                whereClause += ' AND r.nombre = ?';
-                params.push(tipo);
-            }
-
-            if (estado && estado !== 'todos') {
-                whereClause += ' AND u.activo = ?';
-                params.push(estado === 'activo');
-            }
+            console.log('Parámetros recibidos:', { tipo, estado, page, limit });
 
             const offset = (parseInt(page) - 1) * parseInt(limit);
 
-            // Query actualizado para incluir información de médicos
-            const [users] = await pool.query(`
-                SELECT u.id_usuario, u.correo, u.nombre_completo, u.documento, 
-                       u.telefono, u.activo, u.created_at, r.nombre as rol,
-                       m.id_medico, m.registro_profesional, m.estado as estado_medico
-                FROM usuarios u
-                INNER JOIN roles r ON u.id_rol = r.id_rol
-                LEFT JOIN medicos m ON u.id_usuario = m.id_medico
-                ${whereClause}
-                ORDER BY u.created_at DESC
-                LIMIT ? OFFSET ?
-            `, [...params, parseInt(limit), offset]);
+            // ENFOQUE SEPARADO: Obtener usuarios y médicos por separado
+            let usuarios = [];
+            let totalCount = 0;
 
-            const [totalCount] = await pool.query(`
-                SELECT COUNT(*) as total
-                FROM usuarios u
-                INNER JOIN roles r ON u.id_rol = r.id_rol
-                LEFT JOIN medicos m ON u.id_usuario = m.id_medico
-                ${whereClause}
-            `, params);
+            if (tipo === 'medico') {
+                // Solo médicos
+                let whereClauseMedicos = 'WHERE 1=1';
+                const paramsMedicos = [];
+
+                if (estado && estado !== 'todos') {
+                    whereClauseMedicos += ' AND estado = ?';
+                    paramsMedicos.push(estado === 'activo' ? 'activo' : 'inactivo');
+                }
+
+                const [medicos] = await pool.query(`
+                SELECT 
+                    id_medico as id_usuario,
+                    correo,
+                    nombre_completo,
+                    telefono,
+                    estado as activo_estado,
+                    created_at,
+                    'medico' as rol
+                FROM medicos 
+                ${whereClauseMedicos}
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+            `, [...paramsMedicos, parseInt(limit), offset]);
+
+                const [countMedicos] = await pool.query(`
+                SELECT COUNT(*) as total FROM medicos ${whereClauseMedicos}
+            `, paramsMedicos);
+
+                usuarios = medicos.map(medico => ({
+                    id_usuario: medico.id_usuario,
+                    correo: medico.correo,
+                    nombre_completo: medico.nombre_completo,
+                    telefono: medico.telefono,
+                    activo: medico.activo_estado === 'activo',
+                    created_at: medico.created_at,
+                    rol: 'medico'
+                }));
+
+                totalCount = countMedicos[0].total;
+
+            } else if (tipo === 'paciente') {
+                // Solo usuarios (pacientes)
+                let whereClauseUsuarios = 'WHERE 1=1';
+                const paramsUsuarios = [];
+
+                if (estado && estado !== 'todos') {
+                    whereClauseUsuarios += ' AND activo = ?';
+                    paramsUsuarios.push(estado === 'activo');
+                }
+
+                const [usuariosData] = await pool.query(`
+                SELECT 
+                    id_usuario,
+                    correo,
+                    nombre_completo,
+                    documento,
+                    telefono,
+                    activo,
+                    created_at,
+                    'paciente' as rol
+                FROM usuarios 
+                ${whereClauseUsuarios}
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+            `, [...paramsUsuarios, parseInt(limit), offset]);
+
+                const [countUsuarios] = await pool.query(`
+                SELECT COUNT(*) as total FROM usuarios ${whereClauseUsuarios}
+            `, paramsUsuarios);
+
+                usuarios = usuariosData.map(usuario => ({
+                    id_usuario: usuario.id_usuario,
+                    correo: usuario.correo,
+                    nombre_completo: usuario.nombre_completo,
+                    documento: usuario.documento,
+                    telefono: usuario.telefono,
+                    activo: usuario.activo,
+                    created_at: usuario.created_at,
+                    rol: 'paciente'
+                }));
+
+                totalCount = countUsuarios[0].total;
+
+            } else {
+                // Todos los usuarios - UNION de ambas tablas
+                let filtroEstado = '';
+                const paramsEstado = [];
+
+                if (estado && estado !== 'todos') {
+                    const estadoValue = estado === 'activo';
+                    filtroEstado = 'WHERE activo = ?';
+                    paramsEstado.push(estadoValue, estadoValue);
+                }
+
+                const unionQuery = `
+                (SELECT 
+                    id_usuario,
+                    correo,
+                    nombre_completo,
+                    telefono,
+                    activo,
+                    created_at,
+                    'paciente' as rol
+                FROM usuarios 
+                ${estado && estado !== 'todos' ? 'WHERE activo = ?' : ''}
+                )
+                UNION ALL
+                (SELECT 
+                    id_medico as id_usuario,
+                    correo,
+                    nombre_completo,
+                    telefono,
+                    (estado = 'activo') as activo,
+                    created_at,
+                    'medico' as rol
+                FROM medicos
+                ${estado && estado !== 'todos' ? 'WHERE estado = ?' : ''}
+                )
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+            `;
+
+                const queryParams = [];
+                if (estado && estado !== 'todos') {
+                    queryParams.push(estado === 'activo'); // Para usuarios
+                    queryParams.push(estado === 'activo' ? 'activo' : 'inactivo'); // Para médicos
+                }
+                queryParams.push(parseInt(limit), offset);
+
+                console.log('Query UNION:', unionQuery);
+                console.log('Parámetros UNION:', queryParams);
+
+                const [unionResult] = await pool.query(unionQuery, queryParams);
+
+                // Conteo total
+                const countQuery = `
+                SELECT 
+                    (SELECT COUNT(*) FROM usuarios ${estado && estado !== 'todos' ? 'WHERE activo = ?' : ''}) +
+                    (SELECT COUNT(*) FROM medicos ${estado && estado !== 'todos' ? 'WHERE estado = ?' : ''}) as total
+            `;
+
+                const countParams = [];
+                if (estado && estado !== 'todos') {
+                    countParams.push(estado === 'activo');
+                    countParams.push(estado === 'activo' ? 'activo' : 'inactivo');
+                }
+
+                const [totalResult] = await pool.query(countQuery, countParams);
+
+                usuarios = unionResult;
+                totalCount = totalResult[0].total;
+            }
+
+            console.log('Usuarios procesados:', usuarios.length);
+            console.log('Total count:', totalCount);
 
             res.json({
                 success: true,
                 data: {
-                    users,
+                    users: usuarios,
                     pagination: {
                         page: parseInt(page),
                         limit: parseInt(limit),
-                        total: totalCount[0].total,
-                        pages: Math.ceil(totalCount[0].total / limit)
+                        total: totalCount,
+                        pages: Math.ceil(totalCount / parseInt(limit))
                     }
                 }
             });
+
         } catch (error) {
-            console.error('Error al obtener usuarios:', error);
+            console.error('Error detallado al obtener usuarios:', error);
+            console.error('Stack trace:', error.stack);
+
             res.status(500).json({
                 success: false,
-                message: 'Error al obtener usuarios'
+                message: 'Error al obtener usuarios',
+                error: process.env.NODE_ENV === 'development' ? {
+                    message: error.message,
+                    stack: error.stack,
+                    code: error.code,
+                    errno: error.errno,
+                    sqlState: error.sqlState,
+                    sqlMessage: error.sqlMessage
+                } : 'Error interno del servidor'
             });
         }
     },
-
-    // Activar/desactivar usuario (incluyendo médicos)
+    
     toggleUserStatus: async (req, res) => {
         let connection;
         try {
@@ -163,8 +293,7 @@ const adminController = {
             }
         }
     },
-
-    // Eliminar usuario
+ 
     deleteUser: async (req, res) => {
         try {
             const { id } = req.params;
@@ -206,14 +335,31 @@ const adminController = {
         }
     },
 
-    // CU-04: Gestionar especialidades del médico
+    // GESTIÓN DE MÉDICOS - HORARIOS Y ESPECIALIDADES
+
+    getAllMedicos: async (req, res) => {
+        try {
+            const [medicos] = await pool.query(`
+            SELECT id_medico, nombre_completo, correo, telefono, estado
+            FROM medicos
+            ORDER BY nombre_completo
+        `);
+            res.json({ success: true, data: medicos });
+        } catch (error) {
+            console.error('Error al obtener médicos:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener médicos' });
+        }
+    },
+    // Add these functions to your adminController object:
+
+    // Get specialties for a specific doctor
     getMedicoEspecialidades: async (req, res) => {
         try {
             const { medicoId } = req.params;
 
-            // Validar que el médico existe y está activo
+            // Validate that the doctor exists
             const [medico] = await pool.query(
-                'SELECT id_medico, estado FROM medicos WHERE id_medico = ?',
+                'SELECT id_medico FROM medicos WHERE id_medico = ?',
                 [medicoId]
             );
 
@@ -224,33 +370,18 @@ const adminController = {
                 });
             }
 
-            if (medico[0].estado !== 'activo') {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Médico inactivo'
-                });
-            }
-
-            // Obtener todas las especialidades disponibles
-            const [todasEspecialidades] = await pool.query(
-                'SELECT id_especialidad, nombre, descripcion FROM especialidades ORDER BY nombre'
-            );
-
-            // Obtener especialidades del médico
-            const [especialidadesMedico] = await pool.query(`
-                SELECT me.id_especialidad 
-                FROM medico_especialidad me 
-                WHERE me.id_medico = ?
-            `, [medicoId]);
-
-            const especialidadesIds = especialidadesMedico.map(esp => esp.id_especialidad);
+            // Get doctor's specialties
+            const [especialidades] = await pool.query(`
+            SELECT e.id_especialidad, e.nombre, e.descripcion
+            FROM especialidades e
+            INNER JOIN medico_especialidad me ON e.id_especialidad = me.id_especialidad
+            WHERE me.id_medico = ?
+            ORDER BY e.nombre
+        `, [medicoId]);
 
             res.json({
                 success: true,
-                data: {
-                    especialidades: todasEspecialidades,
-                    especialidadesAsignadas: especialidadesIds
-                }
+                data: especialidades
             });
 
         } catch (error) {
@@ -262,32 +393,24 @@ const adminController = {
         }
     },
 
+    // Update doctor's specialties
     updateMedicoEspecialidades: async (req, res) => {
         let connection;
         try {
             const { medicoId } = req.params;
             const { especialidades } = req.body;
 
-            // Validaciones
-            if (!especialidades || !Array.isArray(especialidades)) {
+            // Validate input
+            if (!Array.isArray(especialidades)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Debe proporcionar un array de especialidades'
+                    message: 'Las especialidades deben ser un array'
                 });
             }
 
-            if (especialidades.length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Debe seleccionar al menos una especialidad'
-                });
-            }
-
-            connection = await pool.getConnection();
-
-            // Validar que el médico existe y está activo
-            const [medico] = await connection.execute(
-                'SELECT id_medico, estado FROM medicos WHERE id_medico = ?',
+            // Validate that the doctor exists
+            const [medico] = await pool.query(
+                'SELECT id_medico FROM medicos WHERE id_medico = ?',
                 [medicoId]
             );
 
@@ -298,39 +421,37 @@ const adminController = {
                 });
             }
 
-            if (medico[0].estado !== 'activo') {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Médico inactivo'
-                });
+            // Validate that all specialties exist
+            if (especialidades.length > 0) {
+                const placeholders = especialidades.map(() => '?').join(',');
+                const [especialidadesValidas] = await pool.query(
+                    `SELECT id_especialidad FROM especialidades WHERE id_especialidad IN (${placeholders})`,
+                    especialidades
+                );
+
+                if (especialidadesValidas.length !== especialidades.length) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Una o más especialidades no son válidas'
+                    });
+                }
             }
 
-            // Validar que todas las especialidades existen
-            const [especialidadesExistentes] = await connection.execute(
-                `SELECT id_especialidad FROM especialidades WHERE id_especialidad IN (${especialidades.map(() => '?').join(',')})`,
-                especialidades
-            );
-
-            if (especialidadesExistentes.length !== especialidades.length) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Una o más especialidades no existen'
-                });
-            }
-
+            connection = await pool.getConnection();
             await connection.beginTransaction();
 
-            // Eliminar especialidades actuales del médico
+            // Remove all current specialties
             await connection.execute(
                 'DELETE FROM medico_especialidad WHERE id_medico = ?',
                 [medicoId]
             );
 
-            // Insertar nuevas especialidades (con idempotencia)
-            for (const idEspecialidad of especialidades) {
+            // Add new specialties
+            if (especialidades.length > 0) {
+                const values = especialidades.map(espId => [medicoId, espId]);
                 await connection.execute(
-                    'INSERT IGNORE INTO medico_especialidad (id_medico, id_especialidad) VALUES (?, ?)',
-                    [medicoId, parseInt(idEspecialidad)]
+                    'INSERT INTO medico_especialidad (id_medico, id_especialidad) VALUES ?',
+                    [values]
                 );
             }
 
@@ -338,11 +459,7 @@ const adminController = {
 
             res.json({
                 success: true,
-                message: 'Especialidades del médico actualizadas correctamente',
-                data: {
-                    medico_id: medicoId,
-                    especialidades: especialidades
-                }
+                message: 'Especialidades del médico actualizadas correctamente'
             });
 
         } catch (error) {
@@ -360,8 +477,156 @@ const adminController = {
             }
         }
     },
+    createMedicoHorario: async (req, res) => {
+        try {
+            const { medicoId } = req.params;
+            const { fecha, hora_inicio, hora_fin } = req.body;
 
-    // FUNCIONES DE CITAS
+            // Validate input
+            if (!fecha || !hora_inicio || !hora_fin) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Fecha, hora de inicio y hora de fin son obligatorios'
+                });
+            }
+
+            // Validate time logic
+            if (hora_inicio >= hora_fin) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'La hora de inicio debe ser anterior a la hora de fin'
+                });
+            }
+
+            // Validate that the doctor exists
+            const [medico] = await pool.query(
+                'SELECT id_medico FROM medicos WHERE id_medico = ? AND estado = "activo"',
+                [medicoId]
+            );
+
+            if (medico.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Médico no encontrado o inactivo'
+                });
+            }
+
+            // Check for time conflicts
+            const [conflictos] = await pool.query(`
+            SELECT id_horario 
+            FROM horarios 
+            WHERE id_medico = ? 
+            AND fecha = ? 
+            AND (
+                (hora_inicio <= ? AND hora_fin > ?) OR
+                (hora_inicio < ? AND hora_fin >= ?) OR
+                (hora_inicio >= ? AND hora_fin <= ?)
+            )
+        `, [medicoId, fecha, hora_inicio, hora_inicio, hora_fin, hora_fin, hora_inicio, hora_fin]);
+
+            if (conflictos.length > 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Ya existe un horario que se superpone con el horario especificado'
+                });
+            }
+
+            // Create the schedule
+            const [result] = await pool.query(
+                'INSERT INTO horarios (id_medico, fecha, hora_inicio, hora_fin, disponible) VALUES (?, ?, ?, ?, true)',
+                [medicoId, fecha, hora_inicio, hora_fin]
+            );
+
+            res.status(201).json({
+                success: true,
+                message: 'Horario creado correctamente',
+                data: {
+                    id_horario: result.insertId,
+                    id_medico: medicoId,
+                    fecha,
+                    hora_inicio,
+                    hora_fin,
+                    disponible: true
+                }
+            });
+
+        } catch (error) {
+            console.error('Error al crear horario:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al crear horario'
+            });
+        }
+    },
+
+    // Obtener horarios de un médico
+    getMedicoHorarios: async (req, res) => {
+        try {
+            const { medicoId } = req.params;
+            const [horarios] = await pool.query(`
+                SELECT id_horario, fecha, hora_inicio, hora_fin, disponible
+                FROM horarios
+                WHERE id_medico = ?
+                ORDER BY fecha, hora_inicio
+            `, [medicoId]);
+            res.json({ success: true, data: horarios });
+        } catch (error) {
+            console.error('Error al obtener horarios:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener horarios' });
+        }
+    },
+
+    // Cambiar horario de un médico
+    updateMedicoHorario: async (req, res) => {
+        try {
+            const { horarioId } = req.params;
+            const { fecha, hora_inicio, hora_fin } = req.body;
+
+            await pool.query(
+                'UPDATE horarios SET fecha = ?, hora_inicio = ?, hora_fin = ? WHERE id_horario = ?',
+                [fecha, hora_inicio, hora_fin, horarioId]
+            );
+            res.json({ success: true, message: 'Horario actualizado correctamente' });
+        } catch (error) {
+            console.error('Error al actualizar horario:', error);
+            res.status(500).json({ success: false, message: 'Error al actualizar horario' });
+        }
+    },
+
+    // Eliminar horario de un médico
+    deleteMedicoHorario: async (req, res) => {
+        try {
+            const { horarioId } = req.params;
+            await pool.query('DELETE FROM horarios WHERE id_horario = ?', [horarioId]);
+            res.json({ success: true, message: 'Horario eliminado correctamente' });
+        } catch (error) {
+            console.error('Error al eliminar horario:', error);
+            res.status(500).json({ success: false, message: 'Error al eliminar horario' });
+        }
+    },
+
+    // Eliminar médico y sus horarios
+    deleteMedico: async (req, res) => {
+        try {
+            const { medicoId } = req.params;
+
+            // Eliminar horarios del médico
+            await pool.query('DELETE FROM horarios WHERE id_medico = ?', [medicoId]);
+            // Eliminar especialidades del médico
+            await pool.query('DELETE FROM medico_especialidad WHERE id_medico = ?', [medicoId]);
+            // Eliminar médico
+            await pool.query('DELETE FROM medicos WHERE id_medico = ?', [medicoId]);
+            // Eliminar usuario
+            await pool.query('DELETE FROM usuarios WHERE id_usuario = ?', [medicoId]);
+
+            res.json({ success: true, message: 'Médico y sus horarios eliminados correctamente' });
+        } catch (error) {
+            console.error('Error al eliminar médico:', error);
+            res.status(500).json({ success: false, message: 'Error al eliminar médico' });
+        }
+    },
+
+    // GESTIÓN DE CITAS
     getAllCitas: async (req, res) => {
         try {
             const {
@@ -486,12 +751,14 @@ const adminController = {
         }
     },
 
+    // Admin cambia estado de cita (confirmada, realizada, no asistió)
     updateCitaStatus: async (req, res) => {
         let connection;
         try {
             const { id } = req.params;
-            const { estado, observaciones = '' } = req.body;
+            const { estado, motivo = '', observaciones = '' } = req.body;
 
+            // Validación básica
             if (!id || isNaN(parseInt(id))) {
                 return res.status(400).json({
                     success: false,
@@ -499,33 +766,41 @@ const adminController = {
                 });
             }
 
-            if (!['confirmada', 'realizada', 'no_asistio'].includes(estado)) {
+            const citaId = parseInt(id);
+
+            // Validar estados permitidos
+            const estadosPermitidos = ['pendiente', 'confirmada', 'realizada', 'cancelada', 'no_asistio'];
+            if (!estadosPermitidos.includes(estado)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Estado inválido. Debe ser "confirmada", "realizada" o "no_asistio"'
+                    message: 'Estado inválido'
                 });
             }
 
             connection = await pool.getConnection();
 
+            // Obtener información actual de la cita
             const [citaRows] = await connection.execute(`
-                SELECT 
-                    c.id_cita, 
-                    c.id_estado, 
-                    h.fecha,
-                    h.hora_inicio,
-                    h.id_medico,
-                    up.nombre_completo as paciente,
-                    m.nombre_completo as medico,
-                    ec.nombre as estado_actual
-                FROM citas c
-                INNER JOIN horarios h ON c.id_horario = h.id_horario
-                INNER JOIN pacientes p ON c.id_paciente = p.id_paciente
-                INNER JOIN usuarios up ON p.id_paciente = up.id_usuario
-                INNER JOIN medicos m ON h.id_medico = m.id_medico
-                LEFT JOIN estados_cita ec ON c.id_estado = ec.id_estado
-                WHERE c.id_cita = ?
-            `, [parseInt(id)]);
+            SELECT 
+                c.id_cita,
+                c.id_estado,
+                c.motivo_cancelacion,
+                h.id_horario,
+                h.fecha,
+                h.hora_inicio,
+                h.hora_fin,
+                up.nombre_completo as paciente,
+                up.correo as paciente_correo,
+                m.nombre_completo as medico,
+                ec.nombre as estado_actual
+            FROM citas c
+            INNER JOIN horarios h ON c.id_horario = h.id_horario
+            INNER JOIN pacientes p ON c.id_paciente = p.id_paciente
+            INNER JOIN usuarios up ON p.id_paciente = up.id_usuario
+            INNER JOIN medicos m ON h.id_medico = m.id_medico
+            LEFT JOIN estados_cita ec ON c.id_estado = ec.id_estado
+            WHERE c.id_cita = ?
+        `, [citaId]);
 
             if (citaRows.length === 0) {
                 return res.status(404).json({
@@ -536,96 +811,149 @@ const adminController = {
 
             const cita = citaRows[0];
 
-            // Validaciones según el estado
-            if (estado === 'confirmada') {
-                if (![1, null].includes(cita.id_estado)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Solo se pueden confirmar citas pendientes'
-                    });
-                }
-            } else if (estado === 'realizada' || estado === 'no_asistio') {
-                if (![1, 2, null].includes(cita.id_estado)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Solo se pueden actualizar citas pendientes o confirmadas'
-                    });
-                }
+            // Mapeo de estados a IDs
+            const estadoMap = {
+                'pendiente': 1,
+                'confirmada': 2,
+                'realizada': 3,
+                'cancelada': 4,
+                'no_asistio': 5
+            };
+
+            const nuevoEstadoId = estadoMap[estado];
+
+            // Validaciones de negocio
+            if (estado === 'cancelada' && cita.id_estado === 4) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'La cita ya está cancelada'
+                });
+            }
+
+            if (estado === 'realizada' && cita.id_estado === 3) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'La cita ya está marcada como realizada'
+                });
             }
 
             await connection.beginTransaction();
 
-            try {
-                const estadoMap = {
-                    'confirmada': 2,
-                    'realizada': 3,
-                    'no_asistio': 5
-                };
+            // Actualizar el estado de la cita
+            let updateQuery = '';
+            let updateParams = [];
 
-                const nuevoEstadoId = estadoMap[estado];
+            if (estado === 'cancelada') {
+                updateQuery = `
+                UPDATE citas 
+                SET 
+                    id_estado = ?,
+                    cancelada_por = 'admin',
+                    motivo_cancelacion = ?,
+                    fecha_cancelacion = NOW(),
+                    fecha_actualizacion = NOW()
+                WHERE id_cita = ?
+            `;
+                updateParams = [nuevoEstadoId, motivo || 'Cancelada por administrador', citaId];
 
-                await connection.execute(`
-                    UPDATE citas 
-                    SET 
-                        id_estado = ?,
-                        observaciones = ?,
-                        fecha_actualizacion = NOW()
-                    WHERE id_cita = ?
-                `, [nuevoEstadoId, observaciones.trim(), parseInt(id)]);
+                // Liberar el horario
+                await connection.execute(
+                    'UPDATE horarios SET disponible = true WHERE id_horario = ?',
+                    [cita.id_horario]
+                );
 
-                // Auditoría
-                await connection.execute(`
-                    INSERT INTO auditoria_citas (id_cita, evento, descripcion, usuario_id, fecha_evento)
-                    VALUES (?, ?, ?, ?, NOW())
-                `, [parseInt(id), estado, `Cita marcada como ${estado}. Observaciones: ${observaciones.trim()}`, req.user.id_usuario]);
-
-                await connection.commit();
-
-                const mensajeMap = {
-                    'confirmada': 'Cita confirmada correctamente',
-                    'realizada': 'Cita marcada como realizada correctamente',
-                    'no_asistio': 'Cita marcada como no asistió correctamente'
-                };
-
-                res.json({
-                    success: true,
-                    message: mensajeMap[estado],
-                    data: {
-                        id_cita: cita.id_cita,
-                        estado: estado,
-                        paciente: cita.paciente,
-                        medico: cita.medico
-                    }
-                });
-
-            } catch (transactionError) {
-                await connection.rollback();
-                throw transactionError;
+            } else {
+                updateQuery = `
+                UPDATE citas 
+                SET 
+                    id_estado = ?,
+                    observaciones = ?,
+                    fecha_actualizacion = NOW()
+                WHERE id_cita = ?
+            `;
+                updateParams = [nuevoEstadoId, observaciones || motivo, citaId];
             }
+
+            const [updateResult] = await connection.execute(updateQuery, updateParams);
+
+            if (updateResult.affectedRows === 0) {
+                throw new Error('No se pudo actualizar la cita');
+            }
+
+            // Insertar en auditoría (opcional)
+            try {
+                await connection.execute(`
+                INSERT INTO auditoria_citas (id_cita, evento, descripcion, usuario_id, fecha_evento)
+                VALUES (?, ?, ?, ?, NOW())
+            `, [
+                    citaId,
+                    estado,
+                    `Cita marcada como ${estado}. ${motivo || observaciones || ''}`,
+                    req.user?.id_usuario || 1
+                ]);
+            } catch (auditError) {
+                // No fallar si no existe la tabla
+            }
+
+            await connection.commit();
+
+            // Enviar correo si es cancelación
+            if (estado === 'cancelada' && cita.paciente_correo) {
+                try {
+                    await CancelcitascorreoCc(cita.paciente_correo, cita.paciente);
+                } catch (emailError) {
+                    // No fallar por error de correo
+                }
+            }
+
+            const mensajeMap = {
+                'pendiente': 'Cita marcada como pendiente',
+                'confirmada': 'Cita confirmada correctamente',
+                'realizada': 'Cita marcada como realizada',
+                'cancelada': 'Cita cancelada correctamente',
+                'no_asistio': 'Cita marcada como no asistió'
+            };
+
+            res.json({
+                success: true,
+                message: mensajeMap[estado],
+                data: {
+                    id_cita: cita.id_cita,
+                    estado: estado,
+                    paciente: cita.paciente,
+                    medico: cita.medico,
+                    fecha: cita.fecha,
+                    hora: cita.hora_inicio
+                }
+            });
 
         } catch (error) {
             if (connection) {
-                await connection.rollback();
+                try { await connection.rollback(); } catch { }
             }
-            console.error('Error al actualizar estado de cita:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error interno del servidor al actualizar la cita',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+                message: 'Error al actualizar estado de la cita'
             });
         } finally {
-            if (connection) {
-                connection.release();
-            }
+            if (connection) connection.release();
         }
     },
 
+
+    // Solo para cancelar citas - envía correo
+    // Fixed cancelCita function with proper error handling and validation
     cancelCita: async (req, res) => {
+        console.log('=== CANCEL CITA START ===');
+        console.log('Request params:', req.params);
+        console.log('Request body:', req.body);
+
         let connection;
         try {
             const { id } = req.params;
-            const { motivo, cancelada_por = 'admin' } = req.body;
+            const { motivo = 'Cancelada por administrador', cancelada_por = 'admin' } = req.body;
 
+            // Validate input
             if (!id || isNaN(parseInt(id))) {
                 return res.status(400).json({
                     success: false,
@@ -633,39 +961,33 @@ const adminController = {
                 });
             }
 
-            if (!motivo || motivo.trim() === '') {
-                return res.status(400).json({
-                    success: false,
-                    message: 'El motivo de cancelación es requerido'
-                });
-            }
+            const citaId = parseInt(id);
+            console.log('Processing cancellation for cita ID:', citaId);
 
             connection = await pool.getConnection();
 
-            // Query mejorado para obtener información completa de la cita
+            // Get appointment details
             const [citaRows] = await connection.execute(`
-                SELECT 
-                    c.id_cita,
-                    c.id_estado,
-                    h.id_horario,
-                    h.fecha,
-                    h.hora_inicio,
-                    h.hora_fin,
-                    up.nombre_completo as paciente,
-                    up.correo as paciente_correo,
-                    m.nombre_completo as medico,
-                    GROUP_CONCAT(DISTINCT e.nombre SEPARATOR ', ') as especialidades
-                FROM citas c
-                INNER JOIN horarios h ON c.id_horario = h.id_horario
-                INNER JOIN pacientes p ON c.id_paciente = p.id_paciente
-                INNER JOIN usuarios up ON p.id_paciente = up.id_usuario
-                INNER JOIN medicos m ON h.id_medico = m.id_medico
-                LEFT JOIN medico_especialidad me ON m.id_medico = me.id_medico
-                LEFT JOIN especialidades e ON me.id_especialidad = e.id_especialidad
-                WHERE c.id_cita = ?
-                GROUP BY c.id_cita, c.id_estado, h.id_horario, h.fecha, h.hora_inicio, 
-                         h.hora_fin, up.nombre_completo, up.correo, m.nombre_completo
-            `, [parseInt(id)]);
+            SELECT 
+                c.id_cita,
+                c.id_estado,
+                c.motivo_cancelacion,
+                h.id_horario,
+                h.fecha,
+                h.hora_inicio,
+                h.hora_fin,
+                up.nombre_completo as paciente,
+                up.correo as paciente_correo,
+                m.nombre_completo as medico,
+                ec.nombre as estado_actual
+            FROM citas c
+            INNER JOIN horarios h ON c.id_horario = h.id_horario
+            INNER JOIN pacientes p ON c.id_paciente = p.id_paciente
+            INNER JOIN usuarios up ON p.id_paciente = up.id_usuario
+            INNER JOIN medicos m ON h.id_medico = m.id_medico
+            LEFT JOIN estados_cita ec ON c.id_estado = ec.id_estado
+            WHERE c.id_cita = ?
+        `, [citaId]);
 
             if (citaRows.length === 0) {
                 return res.status(404).json({
@@ -675,7 +997,9 @@ const adminController = {
             }
 
             const cita = citaRows[0];
+            console.log('Found appointment:', cita);
 
+            // Check if already cancelled
             if (cita.id_estado === 4) {
                 return res.status(400).json({
                     success: false,
@@ -683,11 +1007,29 @@ const adminController = {
                 });
             }
 
-            // Validación de ventana de cancelación (24 horas)
-            const fechaHoraCita = new Date(`${cita.fecha.toISOString().split('T')[0]} ${cita.hora_inicio}`);
+            // Check if appointment can be cancelled (business logic)
+            if (cita.id_estado === 3) { // Already completed
+                return res.status(400).json({
+                    success: false,
+                    message: 'No se puede cancelar una cita ya realizada'
+                });
+            }
+
+            // Validate appointment date (optional 24-hour rule for non-admin)
+            const fechaHoraCita = new Date(`${cita.fecha.toISOString().split('T')[0]}T${cita.hora_inicio}`);
             const ahora = new Date();
             const horasRestantes = (fechaHoraCita - ahora) / (1000 * 60 * 60);
 
+            console.log('Hours remaining until appointment:', horasRestantes);
+
+            if (horasRestantes < 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No se puede cancelar una cita que ya pasó'
+                });
+            }
+
+            // For non-admin users, enforce 24-hour rule
             if (horasRestantes < 24 && cancelada_por !== 'admin') {
                 return res.status(409).json({
                     success: false,
@@ -695,98 +1037,274 @@ const adminController = {
                 });
             }
 
+            // All validations passed, proceed with cancellation
             await connection.beginTransaction();
+            console.log('Transaction started');
 
             try {
-                await connection.execute(`
-                    UPDATE citas 
-                    SET 
-                        id_estado = 4,
-                        cancelada_por = ?,
-                        motivo_cancelacion = ?,
-                        fecha_cancelacion = NOW(),
-                        fecha_actualizacion = NOW()
-                    WHERE id_cita = ?
-                `, [cancelada_por, motivo.trim(), parseInt(id)]);
+                // Update appointment status to cancelled (4)
+                const [updateResult] = await connection.execute(`
+                UPDATE citas 
+                SET 
+                    id_estado = 4,
+                    cancelada_por = ?,
+                    motivo_cancelacion = ?,
+                    fecha_cancelacion = NOW(),
+                    fecha_actualizacion = NOW()
+                WHERE id_cita = ?
+            `, [cancelada_por, motivo.trim(), citaId]);
 
-                await connection.execute(`
-                    UPDATE horarios 
-                    SET disponible = true 
-                    WHERE id_horario = ?
-                `, [cita.id_horario]);
+                console.log('Update result:', updateResult);
 
-                // Auditoría
-                await connection.execute(`
+                if (updateResult.affectedRows === 0) {
+                    throw new Error('No se pudo actualizar la cita');
+                }
+
+                // Free up the time slot
+                const [horarioResult] = await connection.execute(`
+                UPDATE horarios 
+                SET disponible = true 
+                WHERE id_horario = ?
+            `, [cita.id_horario]);
+
+                console.log('Schedule update result:', horarioResult);
+
+                // Add audit log (optional, don't fail if table doesn't exist)
+                try {
+                    await connection.execute(`
                     INSERT INTO auditoria_citas (id_cita, evento, descripcion, usuario_id, fecha_evento)
                     VALUES (?, ?, ?, ?, NOW())
-                `, [parseInt(id), 'cancelada', `Cita cancelada por ${cancelada_por}. Motivo: ${motivo.trim()}`, req.user.id_usuario]);
+                `, [
+                        citaId,
+                        'cancelada',
+                        `Cita cancelada por ${cancelada_por}. Motivo: ${motivo.trim()}`,
+                        req.user?.id_usuario || 1
+                    ]);
+                    console.log('Audit log created');
+                } catch (auditError) {
+                    console.warn('Warning: Could not log to audit table:', auditError.message);
+                    // Continue without failing - audit is not critical
+                }
 
                 await connection.commit();
+                console.log('Transaction committed successfully');
 
-                // Enviar correo al paciente
+                // Send notification email (optional, don't fail if it doesn't work)
                 if (cita.paciente_correo) {
                     try {
                         await CancelcitascorreoCc(cita.paciente_correo, cita.paciente);
+                        console.log('Cancellation email sent');
                     } catch (emailError) {
                         console.error('Error al enviar correo de cancelación:', emailError);
-                        // No fallar la operación por error de correo
+                        // Don't fail the operation due to email error
                     }
                 }
 
+                console.log('=== CANCEL CITA SUCCESS ===');
+
                 res.json({
                     success: true,
-                    message: `Cita cancelada correctamente. Paciente: ${cita.paciente}, Médico: ${cita.medico}`,
+                    message: `Cita cancelada correctamente.`,
                     data: {
                         id_cita: cita.id_cita,
                         paciente: cita.paciente,
                         medico: cita.medico,
+                        fecha: cita.fecha,
+                        hora: cita.hora_inicio,
                         motivo: motivo.trim(),
-                        cancelada_por: cancelada_por
+                        cancelada_por: cancelada_por,
+                        estado: 'cancelada'
                     }
                 });
 
             } catch (transactionError) {
                 await connection.rollback();
+                console.log('Transaction rolled back due to error');
                 throw transactionError;
             }
 
         } catch (error) {
             if (connection) {
-                await connection.rollback();
+                try {
+                    await connection.rollback();
+                } catch (rollbackError) {
+                    console.error('Rollback error:', rollbackError);
+                }
             }
-            console.error('Error al cancelar cita:', error);
-            res.status(500).json({
+
+            console.log('=== CANCEL CITA ERROR ===');
+            console.error('Error details:', {
+                message: error.message,
+                code: error.code,
+                sqlState: error.sqlState,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : 'Hidden in production'
+            });
+
+            // Return more specific error information
+            let errorMessage = 'Error interno del servidor al cancelar la cita';
+            let statusCode = 500;
+
+            // Check for specific database errors
+            if (error.code === 'ER_NO_SUCH_TABLE') {
+                errorMessage = 'Error de configuración de base de datos - tabla no encontrada';
+                console.error('Missing table:', error.message);
+            } else if (error.code === 'ER_BAD_FIELD_ERROR') {
+                errorMessage = 'Error en la estructura de la base de datos - campo no encontrado';
+                console.error('Bad field:', error.message);
+            } else if (error.code === 'ECONNREFUSED') {
+                errorMessage = 'Error de conexión a la base de datos';
+                console.error('Database connection refused');
+            } else if (error.code === 'ER_DUP_ENTRY') {
+                errorMessage = 'Error de datos duplicados';
+            }
+
+            res.status(statusCode).json({
                 success: false,
-                message: 'Error interno del servidor al cancelar la cita'
+                message: errorMessage,
+                error: process.env.NODE_ENV === 'development' ? {
+                    message: error.message,
+                    code: error.code,
+                    sqlState: error.sqlState
+                } : undefined
             });
         } finally {
             if (connection) {
                 connection.release();
+                console.log('Database connection released');
             }
+            console.log('=== CANCEL CITA END ===');
         }
     },
-
+    // CONFIGURACIÓN DEL SISTEMA
     getEstadosCita: async (req, res) => {
         try {
             const [estados] = await pool.query(`
-                SELECT id_estado, nombre, descripcion, color, permite_cancelacion, created_at
-                FROM estados_cita 
-                ORDER BY id_estado
-            `);
+            SELECT id_estado, nombre, descripcion, color, permite_cancelacion, created_at
+            FROM estados_cita 
+            ORDER BY id_estado
+        `);
 
             res.json({
                 success: true,
                 data: estados
             });
         } catch (error) {
-            console.error('Error al obtener estados:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error al obtener estados de cita'
             });
         }
     },
+    
+    createEstadoCita: async (req, res) => {
+        try {
+            const { nombre, descripcion, color, permite_cancelacion = 1 } = req.body;
 
+            if (!nombre || nombre.trim() === '') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El nombre del estado es obligatorio'
+                });
+            }
+
+            if (!color || !/^#[0-9A-F]{6}$/i.test(color)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El color debe ser un código hexadecimal válido (ej: #FF0000)'
+                });
+            }
+
+            const [existing] = await pool.query(
+                'SELECT id_estado FROM estados_cita WHERE LOWER(TRIM(nombre)) = LOWER(?)',
+                [nombre.trim()]
+            );
+
+            if (existing.length > 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Ya existe un estado con ese nombre'
+                });
+            }
+
+            const [result] = await pool.query(
+                'INSERT INTO estados_cita (nombre, descripcion, color, permite_cancelacion) VALUES (?, ?, ?, ?)',
+                [nombre.trim(), descripcion?.trim() || null, color.toUpperCase(), permite_cancelacion ? 1 : 0]
+            );
+
+            res.status(201).json({
+                success: true,
+                message: 'Estado de cita creado correctamente',
+                data: {
+                    id_estado: result.insertId,
+                    nombre: nombre.trim(),
+                    descripcion: descripcion?.trim() || null,
+                    color: color.toUpperCase(),
+                    permite_cancelacion: permite_cancelacion ? 1 : 0
+                }
+            });
+
+        } catch (error) {
+            console.error('Error al crear estado de cita:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al crear estado de cita',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+    },
+
+    deleteEstadoCita: async (req, res) => {
+        try {
+            const { id } = req.params;
+
+            if (!id || isNaN(parseInt(id))) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'ID de estado inválido'
+                });
+            }
+
+            // Verificar si el estado está en uso
+            const [citasConEstado] = await pool.query(
+                'SELECT COUNT(*) as count FROM citas WHERE id_estado = ?',
+                [parseInt(id)]
+            );
+
+            if (citasConEstado[0].count > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No se puede eliminar el estado porque está siendo utilizado por citas existentes'
+                });
+            }
+
+            const [result] = await pool.query(
+                'DELETE FROM estados_cita WHERE id_estado = ?',
+                [parseInt(id)]
+            );
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Estado de cita no encontrado'
+                });
+            }
+
+            res.json({
+                success: true,
+                message: 'Estado de cita eliminado correctamente'
+            });
+
+        } catch (error) {
+            console.error('Error al eliminar estado de cita:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error al eliminar estado de cita',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+    },
+
+    // REPORTES
     getReportes: async (req, res) => {
         try {
             const { tipo, fecha_inicio, fecha_fin } = req.query;
@@ -909,189 +1427,6 @@ const adminController = {
             res.status(500).json({
                 success: false,
                 message: 'Error al generar reporte'
-            });
-        }
-    },
-
-    getEspecialidades: async (req, res) => {
-        try {
-            const [rows] = await pool.query(`
-                SELECT id_especialidad, nombre, descripcion
-                FROM especialidades 
-                ORDER BY nombre
-            `);
-
-            res.json({
-                success: true,
-                message: 'Especialidades obtenidas correctamente',
-                data: rows
-            });
-
-        } catch (error) {
-            res.status(500).json({
-                success: false,
-                message: 'Error al obtener especialidades',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined
-            });
-        }
-    },
-
-    createEspecialidad: async (req, res) => {
-        try {
-            const { nombre, descripcion } = req.body;
-
-            if (!nombre || nombre.trim() === '') {
-                return res.status(400).json({
-                    success: false,
-                    message: 'El nombre de la especialidad es obligatorio'
-                });
-            }
-
-            const nombreLimpio = nombre.trim();
-
-            const [existing] = await pool.query(
-                'SELECT id_especialidad FROM especialidades WHERE LOWER(TRIM(nombre)) = LOWER(?)',
-                [nombreLimpio]
-            );
-
-            if (existing.length > 0) {
-                return res.status(409).json({
-                    success: false,
-                    message: 'La especialidad ya existe'
-                });
-            }
-
-            const [result] = await pool.query(
-                'INSERT INTO especialidades (nombre, descripcion) VALUES (?, ?)',
-                [nombreLimpio, descripcion?.trim() || null]
-            );
-
-            return res.status(201).json({
-                success: true,
-                message: 'Especialidad creada correctamente',
-                data: {
-                    id_especialidad: result.insertId,
-                    nombre: nombreLimpio,
-                    descripcion: descripcion?.trim() || null
-                }
-            });
-
-        } catch (error) {
-            console.error('Error detallado en createEspecialidad:', error);
-
-            return res.status(500).json({
-                success: false,
-                message: 'Error al crear especialidad',
-                error: error.message
-            });
-        }
-    },
-
-    // Gestión de estados de cita
-    createEstadoCita: async (req, res) => {
-        try {
-            const { nombre, descripcion, color, permite_cancelacion = 1 } = req.body;
-
-            if (!nombre || nombre.trim() === '') {
-                return res.status(400).json({
-                    success: false,
-                    message: 'El nombre del estado es obligatorio'
-                });
-            }
-
-            if (!color || !/^#[0-9A-F]{6}$/i.test(color)) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'El color debe ser un código hexadecimal válido (ej: #FF0000)'
-                });
-            }
-
-            const [existing] = await pool.query(
-                'SELECT id_estado FROM estados_cita WHERE LOWER(TRIM(nombre)) = LOWER(?)',
-                [nombre.trim()]
-            );
-
-            if (existing.length > 0) {
-                return res.status(409).json({
-                    success: false,
-                    message: 'Ya existe un estado con ese nombre'
-                });
-            }
-
-            const [result] = await pool.query(
-                'INSERT INTO estados_cita (nombre, descripcion, color, permite_cancelacion) VALUES (?, ?, ?, ?)',
-                [nombre.trim(), descripcion?.trim() || null, color.toUpperCase(), permite_cancelacion ? 1 : 0]
-            );
-
-            res.status(201).json({
-                success: true,
-                message: 'Estado de cita creado correctamente',
-                data: {
-                    id_estado: result.insertId,
-                    nombre: nombre.trim(),
-                    descripcion: descripcion?.trim() || null,
-                    color: color.toUpperCase(),
-                    permite_cancelacion: permite_cancelacion ? 1 : 0
-                }
-            });
-
-        } catch (error) {
-            console.error('Error al crear estado de cita:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Error al crear estado de cita',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined
-            });
-        }
-    },
-
-    deleteEstadoCita: async (req, res) => {
-        try {
-            const { id } = req.params;
-
-            if (!id || isNaN(parseInt(id))) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'ID de estado inválido'
-                });
-            }
-
-            // Verificar si el estado está en uso
-            const [citasConEstado] = await pool.query(
-                'SELECT COUNT(*) as count FROM citas WHERE id_estado = ?',
-                [parseInt(id)]
-            );
-
-            if (citasConEstado[0].count > 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'No se puede eliminar el estado porque está siendo utilizado por citas existentes'
-                });
-            }
-
-            const [result] = await pool.query(
-                'DELETE FROM estados_cita WHERE id_estado = ?',
-                [parseInt(id)]
-            );
-
-            if (result.affectedRows === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Estado de cita no encontrado'
-                });
-            }
-
-            res.json({
-                success: true,
-                message: 'Estado de cita eliminado correctamente'
-            });
-
-        } catch (error) {
-            console.error('Error al eliminar estado de cita:', error);
-            res.status(500).json({
-                success: false,
-                message: 'Error al eliminar estado de cita',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined
             });
         }
     }
