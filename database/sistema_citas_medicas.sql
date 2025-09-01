@@ -289,10 +289,10 @@ CREATE TABLE `pacientes` (
 --
 
 INSERT INTO `pacientes` (`id_paciente`, `fecha_nacimiento`, `sexo`, `eps`, `alergias`, `contacto_emergencia`, `telefono_emergencia`, `created_at`, `updated_at`) VALUES
-(1, NULL, NULL, NULL, NULL, NULL, NULL, '2025-09-01 19:15:21', '2025-09-01 19:15:21'),
-(2, '2006-10-25', 'F', 'Compensar', 'Ninguna', 'Liliana Ramirez (Mamá)', '3183904956', '2025-09-01 19:16:11', '2025-09-01 19:22:51'),
-(3, '2006-10-25', 'M', 'Sanitas', 'Ninguna', 'Daniela Luna (Esposa)', '3183904956', '2025-09-01 19:17:45', '2025-09-01 19:19:52'),
-(4, '2000-10-10', 'M', NULL, NULL, NULL, NULL, '2025-09-01 19:24:41', '2025-09-01 19:25:26');
+(6, NULL, NULL, NULL, NULL, NULL, NULL, '2025-09-01 19:15:21', '2025-09-01 19:15:21'),
+(7, '2006-10-25', 'F', 'Compensar', 'Ninguna', 'Liliana Ramirez (Mamá)', '3183904956', '2025-09-01 19:16:11', '2025-09-01 19:22:51'),
+(8, '2006-10-25', 'M', 'Sanitas', 'Ninguna', 'Daniela Luna (Esposa)', '3183904956', '2025-09-01 19:17:45', '2025-09-01 19:19:52'),
+(9, '2000-10-10', 'M', NULL, NULL, NULL, NULL, '2025-09-01 19:24:41', '2025-09-01 19:25:26');
 
 -- --------------------------------------------------------
 
@@ -358,10 +358,10 @@ CREATE TABLE `usuarios` (
 --
 
 INSERT INTO `usuarios` (`id_usuario`, `correo`, `password_hash`, `nombre_completo`, `documento`, `telefono`, `id_rol`, `activo`, `fecha_ultimo_acceso`, `created_at`, `updated_at`, `intentos_fallidos`, `bloqueado_hasta`, `reset_token`, `reset_token_expire`) VALUES
-(1, 'lauravalentinadiaz25@gmail.com', '$2b$10$5jYrFjvYfmILe5X1hgb6D.Ss04d4AVEK8GPZBBfgC5pR5ME1x5/By', 'Laura Valentina Diaz Ramirez', '1110487272', '314372727272', 1, 1, NULL, '2025-09-01 19:15:21', '2025-09-01 19:21:49', 0, NULL, NULL, NULL),
-(2, 'valentinaramirezld25@gmail.com', '$2b$10$WqmOR4.I23NYPqwe3l2G9eIM1UBLeA4ac33ZyEhCyfZsDR2QiW09a', 'Laura Valentina Diaz Ramirez', '29999293718', '3123461118', 2, 1, '2025-09-01 19:22:27', '2025-09-01 19:16:11', '2025-09-01 19:22:27', 0, NULL, NULL, NULL),
-(3, 'leonba251996@gmail.com', '$2b$10$VxoZ8.gviKS0U3iFYS/.w.2uU9Ft9bOCR0EXps.OphgJGrzW1gkhq', 'Manuel Antonio  Leon Ballesta', '1292938512', '3123232848', 2, 1, '2025-09-01 19:19:07', '2025-09-01 19:17:45', '2025-09-01 19:19:07', 0, NULL, NULL, NULL),
-(4, 'Juan@gmail.com', '$2b$10$FPrh7YQOwiEQ6ciyoV9w7eFRYWpgeKla9swM/gP4kZ1wCZMb7vNpi', 'Juan David Cardona Espinosa', '52786045', '3198467785', 2, 1, '2025-09-01 19:25:08', '2025-09-01 19:24:41', '2025-09-01 19:25:08', 0, NULL, NULL, NULL);
+(6, 'lauravalentinadiaz25@gmail.com', '$2b$10$5jYrFjvYfmILe5X1hgb6D.Ss04d4AVEK8GPZBBfgC5pR5ME1x5/By', 'Laura Valentina Diaz Ramirez', '1110487272', '314372727272', 1, 1, NULL, '2025-09-01 19:15:21', '2025-09-01 19:21:49', 0, NULL, NULL, NULL),
+(7, 'valentinaramirezld25@gmail.com', '$2b$10$WqmOR4.I23NYPqwe3l2G9eIM1UBLeA4ac33ZyEhCyfZsDR2QiW09a', 'Laura Valentina Diaz Ramirez', '29999293718', '3123461118', 2, 1, '2025-09-01 19:22:27', '2025-09-01 19:16:11', '2025-09-01 19:22:27', 0, NULL, NULL, NULL),
+(8, 'leonba251996@gmail.com', '$2b$10$VxoZ8.gviKS0U3iFYS/.w.2uU9Ft9bOCR0EXps.OphgJGrzW1gkhq', 'Manuel Antonio  Leon Ballesta', '1292938512', '3123232848', 2, 1, '2025-09-01 19:19:07', '2025-09-01 19:17:45', '2025-09-01 19:19:07', 0, NULL, NULL, NULL),
+(9, 'Juan@gmail.com', '$2b$10$FPrh7YQOwiEQ6ciyoV9w7eFRYWpgeKla9swM/gP4kZ1wCZMb7vNpi', 'Juan David Cardona Espinosa', '52786045', '3198467785', 2, 1, '2025-09-01 19:25:08', '2025-09-01 19:24:41', '2025-09-01 19:25:08', 0, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
